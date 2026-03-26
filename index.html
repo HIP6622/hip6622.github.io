@@ -46,6 +46,31 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        /* סרגל ניהול למנהלים בלבד */
+        #admin-panel {
+            background: #2d3436;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 0 0 15px 15px;
+            margin-bottom: 20px;
+            display: none; /* מוסתר כברירת מחדל */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        #admin-panel button {
+            cursor: pointer;
+            margin: 0 5px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            border: 1px solid #555;
+            background: #444;
+            color: white;
+            transition: 0.3s;
+        }
+
+        #admin-panel button:hover { background: var(--accent-color); border-color: var(--accent-color); }
+
         /* מבנה הפורום */
         #main-container {
             max-width: 800px;
@@ -111,7 +136,7 @@
             color: #444;
         }
 
-        /* תיבת כתיבה למנהלים */
+        /* תיבת כתיבה למורשים */
         #admin-editor {
             background: white;
             border-radius: 20px;
@@ -132,6 +157,7 @@
             font-size: 1rem;
             outline: none;
             transition: border-color 0.3s;
+            box-sizing: border-box;
         }
 
         textarea:focus {
@@ -177,6 +203,33 @@
         }
 
         .login-box h1 { margin: 0.5rem 0; color: var(--accent-color); }
+        
+        /* חלונות קופצים (מודלים) למנהל */
+        .admin-modal {
+            display: none; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.8); 
+            z-index: 2000; 
+            align-items: center; 
+            justify-content: center;
+        }
+        .modal-content {
+            background: white; 
+            padding: 2rem; 
+            border-radius: 15px; 
+            width: 90%; 
+            max-width: 500px; 
+            max-height: 80vh; 
+            overflow-y: auto;
+        }
+        .close-modal {
+            float: left; 
+            cursor: pointer; 
+            font-size: 1.5rem; 
+            color: #aaa;
+        }
+        .close-modal:hover { color: red; }
     </style>
 </head>
 <body>
@@ -196,6 +249,12 @@
     <div id="user-info" style="color: white; font-weight: bold; display: flex; align-items: center; gap: 10px;"></div>
 </header>
 
+<div id="admin-panel">
+    <strong style="margin-left: 15px;">🛠️ מנהל מערכת:</strong>
+    <button onclick="viewUsers()"><i class="fas fa-users"></i> משתתפים</button>
+    <button onclick="openAdminChat()"><i class="fas fa-comments"></i> צ'אט מנהלים</button>
+</div>
+
 <div id="main-container">
     <div id="admin-editor">
         <h3 style="margin-top: 0;"><i class="fas fa-feather-alt"></i> כתבו בפינה שלכם</h3>
@@ -205,6 +264,14 @@
 
     <div id="forum-feed">
         <div style="text-align: center; color: white; padding: 2rem;">טוען את הפינות המיוחדות...</div>
+    </div>
+</div>
+
+<div id="users-modal" class="admin-modal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('users-modal')">&times;</span>
+        <h2>משתתפים רשומים</h2>
+        <div id="users-list" style="text-align: right; line-height: 1.8;"></div>
     </div>
 </div>
 
@@ -230,7 +297,6 @@
                 const card = document.createElement('div');
                 card.className = 'post-card';
                 
-                // יצירת צבע ייחודי לכל משתמש לפי השם שלו
                 const charCode = post.sender.charCodeAt(0);
                 const colors = ['#6c5ce7', '#fab1a0', '#00cec9', '#0984e3', '#e84393'];
                 const userColor = colors[charCode % colors.length];
@@ -240,7 +306,7 @@
                         <div class="user-avatar" style="background: ${userColor}">${post.sender[0]}</div>
                         <div>
                             <strong style="font-size: 1.1rem;">${post.sender}</strong><br>
-                            <small style="color: #aaa;">${post.time} • ${post.date}</small>
+                            <small style="color: #aaa;">${post.time || ''} • ${post.date || ''}</small>
                         </div>
                     </div>
                     <div class="post-content">${post.text}</div>
@@ -292,11 +358,13 @@
 
     // טיפול בכניסה עם גוגל
     function handleLogin(resp) {
+        // מפענח את האסימון של גוגל למציאת שם ומייל
         const payload = JSON.parse(atob(resp.credential.split('.')[1]));
         currentUser = {
             email: payload.email,
             name: payload.name,
-            picture: payload.picture
+            picture: payload.picture,
+            token: resp.credential // שומרים את האסימון לאימות מול השרת
         };
         
         document.getElementById('login-overlay').style.display = 'none';
@@ -305,29 +373,74 @@
         userInfo.innerHTML = `
             <span>שלום, ${currentUser.name}</span>
             <div class="user-avatar" style="width: 32px; height: 32px; margin: 0;">
-                <img src="${currentUser.picture}">
+                <img src="${currentUser.picture}" alt="תמונת פרופיל">
             </div>
         `;
         
-        checkPermissions(currentUser.email);
+        checkPermissions(currentUser);
         loadPosts();
     }
 
-    // בדיקה האם המשתמש מורשה לכתוב
-    async function checkPermissions(email) {
+    // בדיקת הרשאות מול השרת
+    async function checkPermissions(user) {
         try {
-            const r = await fetch(`${BACKEND}/write_perm_check`, {
+            // שולחים את המייל והאסימון לשרת לבדיקה
+            const r = await fetch(`${BACKEND}/check_permissions`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({email: email})
+                body: JSON.stringify({ email: user.email, credential: user.token })
             });
             const data = await r.json();
-            if(data.allowed) {
+            
+            // אם השרת מאשר שזה מנהל (is_admin מוגדר בקוד שלך בשרת)
+            if(data.is_admin || data.allowed) {
+                document.getElementById('admin-panel').style.display = 'block'; // חשיפת סרגל המנהל
+                document.getElementById('admin-editor').style.display = 'block'; // חשיפת תיבת הכתיבה
+            } else if (data.can_write) {
+                // אם רק מותר לו לכתוב אבל לא לנהל
                 document.getElementById('admin-editor').style.display = 'block';
             }
-        } catch(e) {}
+        } catch(e) { console.error("שגיאה בבדיקת הרשאות:", e); }
     }
 
+    // --- פונקציות ניהול ---
+
+    // צפייה במשתמשים
+    async function viewUsers() {
+        try {
+            const r = await fetch(`${BACKEND}/get_users`);
+            const data = await r.json();
+            
+            let html = '<ul>';
+            if(data.users && data.users.length > 0) {
+                data.users.forEach(u => {
+                    html += `<li><strong>${u.name || 'משתמש'}</strong> - ${u.email}</li>`;
+                });
+            } else {
+                html += '<li>אין משתמשים רשומים כרגע, או שהקובץ ריק.</li>';
+            }
+            html += '</ul>';
+            
+            document.getElementById('users-list').innerHTML = html;
+            document.getElementById('users-modal').style.display = 'flex';
+        } catch(e) {
+            alert("שגיאה במשיכת נתוני משתמשים.");
+        }
+    }
+
+    // פתיחת צ'אט מנהלים (מפנה לנתיב נפרד אם קיים, או פותח פופ-אפ)
+    function openAdminChat() {
+        // מכיוון שיש לך נתיבים רבים בשרת, זו דוגמה בסיסית לפתיחת חלון הצ'אט
+        alert("כאן ייפתח צ'אט המנהלים הסודי. נוכל לבנות עבורו מודל מעוצב בהמשך!");
+        // אפשר גם: window.open(`${BACKEND}/admin_chat_page`, '_blank');
+    }
+
+    // סגירת מודלים
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // אתחול כפתור גוגל
     window.onload = () => {
         google.accounts.id.initialize({
             client_id: '548333676754-ohvlnp1nfjpc1jnbkdfmr9hpccaj508i.apps.googleusercontent.com',
@@ -340,6 +453,10 @@
             text: 'signin_with'
         });
     };
+</script>
+
+</body>
+</html>
 </script>
 
 </body>

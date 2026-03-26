@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בינה ודעה - גרסת האתר</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;500;800&family=Assistant:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    
+    <style>
+        :root {
+            --dream-gradient: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --accent-color: #6c5ce7;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Assistant', sans-serif;
+            background: var(--dream-gradient);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: #2d3436;
+        }
+
+        /* כותרת עליונה חלומית */
+        header {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'Heebo', sans-serif;
+            font-weight: 800;
+            font-size: 1.8rem;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* מבנה הפורום */
+        #main-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* כרטיס פוסט (הפינה של המשתמש) */
+        .post-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(5px);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            transition: transform 0.3s ease;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .post-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .user-corner-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px dashed #ddd;
+            padding-bottom: 0.8rem;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-left: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .post-content {
+            font-size: 1.15rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            color: #444;
+        }
+
+        /* תיבת כתיבה למנהלים */
+        #admin-editor {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 3rem;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            display: none; 
+        }
+
+        textarea {
+            width: 100%;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: inherit;
+            resize: none;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            border-color: var(--accent-color);
+        }
+
+        .btn-send {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 2.5rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .btn-send:hover {
+            opacity: 0.9;
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.3);
+        }
+
+        /* מסך כניסה */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--dream-gradient);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: white;
+            padding: 3rem;
+            border-radius: 30px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .login-box h1 { margin: 0.5rem 0; color: var(--accent-color); }
+    </style>
+</head>
+<body>
+
+<div id="login-overlay">
+    <div class="login-box">
+        <i class="fas fa-cloud-sun" style="font-size: 3rem; color: #8ec5fc; margin-bottom: 1rem;"></i>
+        <h2>ברוכים הבאים</h2>
+        <h1>בינה ודעה</h1>
+        <p style="color: #888;">התחברו כדי לצפות בפינות האישיות ולהשתתף בפורום</p>
+        <div id="googleBtn" style="display: flex; justify-content: center; margin-top: 2rem;"></div>
+    </div>
+</div>
+
+<header>
+    <div class="logo">בינה ודעה ✨</div>
+    <div id="user-info" style="color: white; font-weight: bold; display: flex; align-items: center; gap: 10px;"></div>
+</header>
+
+<div id="main-container">
+    <div id="admin-editor">
+        <h3 style="margin-top: 0;"><i class="fas fa-feather-alt"></i> כתבו בפינה שלכם</h3>
+        <textarea id="post-text" rows="4" placeholder="שתפו את המחשבות שלכם עם הקהילה..."></textarea>
+        <button class="btn-send" onclick="sendPost()">פרסם בפורום ✨</button>
+    </div>
+
+    <div id="forum-feed">
+        <div style="text-align: center; color: white; padding: 2rem;">טוען את הפינות המיוחדות...</div>
+    </div>
+</div>
+
+<script>
+    // --- הגדרות שרת ---
+    const BACKEND = 'https://hiphopruzbcrd.pythonanywhere.com'; 
+    let currentUser = null;
+
+    // טעינת פוסטים מהשרת
+    async function loadPosts() {
+        try {
+            const r = await fetch(`${BACKEND}/feed?limit=50`);
+            const data = await r.json();
+            const feed = document.getElementById('forum-feed');
+            
+            if (data.feed.length === 0) {
+                feed.innerHTML = '<div style="text-align: center; color: white;">עדיין אין פוסטים בפורום. היו הראשונים לכתוב!</div>';
+                return;
+            }
+
+            feed.innerHTML = '';
+            data.feed.forEach(post => {
+                const card = document.createElement('div');
+                card.className = 'post-card';
+                
+                // יצירת צבע ייחודי לכל משתמש לפי השם שלו
+                const charCode = post.sender.charCodeAt(0);
+                const colors = ['#6c5ce7', '#fab1a0', '#00cec9', '#0984e3', '#e84393'];
+                const userColor = colors[charCode % colors.length];
+
+                card.innerHTML = `
+                    <div class="user-corner-info">
+                        <div class="user-avatar" style="background: ${userColor}">${post.sender[0]}</div>
+                        <div>
+                            <strong style="font-size: 1.1rem;">${post.sender}</strong><br>
+                            <small style="color: #aaa;">${post.time} • ${post.date}</small>
+                        </div>
+                    </div>
+                    <div class="post-content">${post.text}</div>
+                `;
+                feed.appendChild(card);
+            });
+        } catch (e) { 
+            console.error("שגיאה בטעינת פוסטים", e); 
+        }
+    }
+
+    // שליחת פוסט חדש
+    async function sendPost() {
+        const text = document.getElementById('post-text').value.trim();
+        if(!text) return;
+
+        const btn = document.querySelector('.btn-send');
+        btn.disabled = true;
+        btn.textContent = 'מפרסם...';
+
+        const entry = {
+            senderEmail: currentUser.email,
+            sender: currentUser.name,
+            text: text,
+            profile: 'news',
+            ts: Date.now()
+        };
+
+        try {
+            const r = await fetch(`${BACKEND}/feed_add`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(entry)
+            });
+
+            if(r.ok) {
+                document.getElementById('post-text').value = '';
+                await loadPosts();
+            } else {
+                alert("אין לך הרשאת כתיבה כרגע. פנה למנהל הראשי לאישור.");
+            }
+        } catch(e) {
+            alert("שגיאת תקשורת עם השרת.");
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'פרסם בפורום ✨';
+        }
+    }
+
+    // טיפול בכניסה עם גוגל
+    function handleLogin(resp) {
+        const payload = JSON.parse(atob(resp.credential.split('.')[1]));
+        currentUser = {
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture
+        };
+        
+        document.getElementById('login-overlay').style.display = 'none';
+        
+        const userInfo = document.getElementById('user-info');
+        userInfo.innerHTML = `
+            <span>שלום, ${currentUser.name}</span>
+            <div class="user-avatar" style="width: 32px; height: 32px; margin: 0;">
+                <img src="${currentUser.picture}">
+            </div>
+        `;
+        
+        checkPermissions(currentUser.email);
+        loadPosts();
+    }
+
+    // בדיקה האם המשתמש מורשה לכתוב
+    async function checkPermissions(email) {
+        try {
+            const r = await fetch(`${BACKEND}/write_perm_check`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email: email})
+            });
+            const data = await r.json();
+            if(data.allowed) {
+                document.getElementById('admin-editor').style.display = 'block';
+            }
+        } catch(e) {}
+    }
+
+    window.onload = () => {
+        google.accounts.id.initialize({
+            client_id: '856723702772-jm929ihp29ovhribfaaph17pbaq6qr3n.apps.googleusercontent.com',
+            callback: handleLogin
+        });
+        google.accounts.id.renderButton(document.getElementById('googleBtn'), {
+            theme: 'outline', 
+            size: 'large',
+            shape: 'pill',
+            text: 'signin_with'
+        });
+    };
+</script>
+
+</body>
+</html>

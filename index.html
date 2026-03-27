@@ -3579,37 +3579,57 @@ async function saveEditMsg(){
   finally{btn.innerHTML='<i class="fas fa-check" style="font-size:14px"></i>';btn.disabled=false;}
 }
 
-/* SITE SETTINGS (UI FOR FUTURE BACKEND) */
+/* SITE SETTINGS (CONNECTED TO BACKEND) */
+async function fetchSiteSettings() {
+    try {
+        const r = await fetch(BACKEND + '/api/settings');
+        if(r.ok) {
+            siteGlobalSettings = await r.json();
+            initGlobalSettings();
+            if(isAdmin()) renderBlockedUsers();
+        }
+    } catch(e) {}
+}
+
+window.addEventListener('load', fetchSiteSettings);
+
 function openSiteSettings(){
     document.getElementById('siteSettingsModal').classList.add('open');
     document.getElementById('settingsSiteTitle').value = siteGlobalSettings.title || "בינה ודעה";
     renderBlockedUsers();
     loadPageStats();
 }
-function closeSiteSettings(){
-    document.getElementById('siteSettingsModal').classList.remove('open');
-}
-function saveSiteTitle(){
+function closeSiteSettings(){ document.getElementById('siteSettingsModal').classList.remove('open'); }
+
+async function saveSiteTitle(){
     const val = document.getElementById('settingsSiteTitle').value.trim();
     if(!val) return;
     siteGlobalSettings.title = val;
-    localStorage.setItem('siteGlobalSettings', JSON.stringify(siteGlobalSettings));
     initGlobalSettings();
-    alert('שם האתר עודכן (לוקאלית)');
-}
-function blockUser(){
-    const email = document.getElementById('settingsBlockEmail').value.trim().toLowerCase();
-    if(!email) return;
-    if(!siteGlobalSettings.blockedEmails.includes(email)){
-        siteGlobalSettings.blockedEmails.push(email);
-        localStorage.setItem('siteGlobalSettings', JSON.stringify(siteGlobalSettings));
-        renderBlockedUsers();
-        document.getElementById('settingsBlockEmail').value = '';
+    if(isSuperAdmin()) {
+        await fetch(BACKEND+'/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_email:me.email, title:val})});
+        alert('שם האתר עודכן בשרת!');
     }
 }
+
+async function blockUser(){
+    const email = document.getElementById('settingsBlockEmail').value.trim().toLowerCase();
+    if(!email) return;
+    if(!siteGlobalSettings.blockedEmails) siteGlobalSettings.blockedEmails = [];
+    if(!siteGlobalSettings.blockedEmails.includes(email)){
+        siteGlobalSettings.blockedEmails.push(email);
+        renderBlockedUsers();
+        document.getElementById('settingsBlockEmail').value = '';
+        if(isSuperAdmin()) {
+            await fetch(BACKEND+'/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_email:me.email, blockedEmails:siteGlobalSettings.blockedEmails})});
+            alert('המשתמש נחסם!');
+        }
+    }
+}
+
 function renderBlockedUsers(){
     const el = document.getElementById('blockedUsersList');
-    if(!siteGlobalSettings.blockedEmails.length){ el.innerHTML = 'אין משתמשים חסומים.'; return; }
+    if(!siteGlobalSettings.blockedEmails || !siteGlobalSettings.blockedEmails.length){ el.innerHTML = 'אין משתמשים חסומים.'; return; }
     el.innerHTML = siteGlobalSettings.blockedEmails.map(email => 
         `<div style="display:flex; justify-content:space-between; background:#fef2f2; padding:5px; margin-bottom:5px; border:1px solid #fecaca; border-radius:5px;">
             <span>${email}</span>
@@ -3617,18 +3637,26 @@ function renderBlockedUsers(){
         </div>`
     ).join('');
 }
-function unblockUser(email){
+
+async function unblockUser(email){
     siteGlobalSettings.blockedEmails = siteGlobalSettings.blockedEmails.filter(e => e !== email);
-    localStorage.setItem('siteGlobalSettings', JSON.stringify(siteGlobalSettings));
     renderBlockedUsers();
+    if(isSuperAdmin()) {
+        await fetch(BACKEND+'/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_email:me.email, blockedEmails:siteGlobalSettings.blockedEmails})});
+    }
 }
-function assignRbac(){
-    const email = document.getElementById('rbacEmail').value;
+
+async function assignRbac(){
+    const email = document.getElementById('rbacEmail').value.trim().toLowerCase();
     const channel = document.getElementById('rbacChannel').value;
     if(!email) return;
-    alert(`הרשאה לערוץ ${channel} הוענקה ל-${email} (דרוש עדכון שרת)`);
+    if(isSuperAdmin()) {
+        const r = await fetch(BACKEND+'/api/rbac', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_email:me.email, target_email:email, channel:channel, action:'add'})});
+        if(r.ok) alert(`הרשאה לערוץ ${channel} הוענקה בהצלחה ל-${email}`);
+    }
     document.getElementById('rbacEmail').value = '';
 }
+
 function loadPageStats(){
     const view = document.getElementById('pageStatsView');
     if(!view) return;
@@ -3636,7 +3664,6 @@ function loadPageStats(){
         <strong>סטטיסטיקות ערוץ "${currentChannelId}":</strong><br>
         סך הודעות שנטענו: ${items.length}<br>
         משתמשים פעילים כרגע: ${document.getElementById('chatPresenceCount')?.innerText || 0}<br>
-        <em>(סטטיסטיקות מלאות דורשות חיבור מלא לשרת)</em>
     `;
 }
 

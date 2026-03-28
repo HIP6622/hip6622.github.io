@@ -2393,3 +2393,13 @@ async function pollOpenComments(){
 setInterval(pollAll,3000);
 setInterval(pollOpenComments,3000);
 setTimeout(pollAll,800);
+
+
+window.addEventListener('load', () => {
+  if (window.google && window.google.accounts) {
+    initGoogle();
+  } else {
+    const gsiScript = document.querySelector('script[src*="gsi"]');
+    if (gsiScript) gsiScript.addEventListener('load', initGoogle);
+  }
+});

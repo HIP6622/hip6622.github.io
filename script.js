@@ -1614,8 +1614,7 @@ function showAdminMsg(txt, color) {
 }
 
 function tryInitGoogle() { if (window.google && window.google.accounts) { initGoogle(); } else { setTimeout(tryInitGoogle, 100); } }
-tryInitGoogle();
-
+window.onload = initGoogle;
 setInterval(pollAll,3000);
 
 

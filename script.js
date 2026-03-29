@@ -712,7 +712,10 @@ function applyWritePerm(perm, rbac){
     return;
   }
   
-  const canWriteHere = (role === 'manager' || role === 'supervisor' || role === 'super' || currentChannelId === _allowedMap[me.email.toLowerCase()]?.slug);
+  const myEmail = me?.email?.toLowerCase();
+  const hasWritePerm = (_writePerm?.emails || []).includes(myEmail);
+  const isMySlugChannel = currentChannelId === _allowedMap[myEmail]?.slug;
+  const canWriteHere = (role === 'manager' || role === 'supervisor') || hasWritePerm || isMySlugChannel;
   
   bar.classList.toggle('blocked', !canWriteHere);
   notice.classList.toggle('show', !canWriteHere);
@@ -1405,7 +1408,7 @@ async function renderAdminsList() {
     const myRole = getRole();
     list.innerHTML = users.map(u => {
       const pic = u.picture ? `<img src="${escAttr(u.picture)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">` : `<div style="width:36px;height:36px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;">${esc((u.name||u.email||'?')[0].toUpperCase())}</div>`;
-      const roleLabel = { super:'בעל אתר', supervisor:'פיקוח', manager:'מנהל', user:'יוצר' }[u.role] || u.role;
+      const roleLabel = { super:'בעל אתר', supervisor:'פיקוח', manager:'מנהל', user:'יוצר' }[u.role] || 'יוצר';
       const roleBadgeColor = { super:'#7c3aed', supervisor:'#dc2626', manager:'#1a56db', user:'#059669' }[u.role] || '#6b7280';
       const canDelete = isSuperAdmin() && u.email !== ADMIN_EMAIL.toLowerCase();
       const isMe = u.email === me?.email?.toLowerCase();
@@ -1464,6 +1467,7 @@ async function removeAdmin(targetEmail) {
     });
     const d = await r.json();
     if (d.status === 'success') {
+      await new Promise(r => setTimeout(r, 400));
       await loadAllowedMap();
       await renderAdminsList();
       showAdminMsg('הוסר בהצלחה', 'green');

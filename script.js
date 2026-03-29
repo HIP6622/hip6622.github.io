@@ -268,6 +268,7 @@ async function handleLogin(resp){
 
 function rich(t){
   if(!t)return''; let s=t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  s=s.replace(/\u200Bquote:([a-f0-9\-]+)\n((?:&gt; [^\n]*\n?)*)\u200B\n*/g,(m,qid,body)=>{const lines=body.replace(/^&gt; /gm,'').trim().split('\n');const firstLine=lines[0]||'';const rest=lines.slice(1).join(' ').trim();return `<div class="quote-block" onclick="jumpToQuotedMsg('${qid}')"><i class="fas fa-quote-right" style="font-size:9px;color:#9ca3af;"></i><span class="quote-block-text"><strong>${firstLine}</strong>${rest?' — <span style="font-weight:400">'+rest.substring(0,80)+(rest.length>80?'…':'')+'</span>':''}</span></div>`;});
   s=s.replace(/\u200B/g,'').replace(/\n/g,'<br>').replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*\n]+)\*/g,'<strong>$1</strong>').replace(/__([^_\n]+)__/g,'<u>$1</u>').replace(/_([^_\n]+)_/g,'<em>$1</em>').replace(/~~([^~\n]+)~~/g,'<s>$1</s>').replace(/---DIVIDER---/g,'<hr class="bubble-divider">').replace(/<br>\s*(<hr[^>]*>)\s*<br>/g,'$1').replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>').replace(/(?<!href=")(https?:\/\/[^\s<>"']{1,500})/g,'<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>').replace(/\x02color:([^\x03]+)\x03([\s\S]*?)\x02\/color\x03/g,'<span style=\"color:$1\">$2</span>');
   return s;
 }
@@ -573,18 +574,21 @@ async function pollWritePerm(){
 
 function applyWritePerm(perm, rbac){
   _writePerm=perm; _rbacData=rbac;
+  const globalEmails=perm?.emails||[];
+  const myRbacChannels = rbac[me?.email] || [];
+  
   const bar=document.getElementById('adminComposeBar');
   const notice=document.getElementById('blockNotice');
-  if(!bar)return;
   
-  const role = getRole();
-  if(role === 'super') {
+  if(!bar)return;
+  if(isSuperAdmin()){
     bar.classList.remove('blocked'); notice.classList.remove('show');
     return;
   }
   
-  // כל מנהל ומעלה יכול לכתוב
-  const canWriteHere = (role === 'manager' || role === 'supervisor' || role === 'super' || currentChannelId === _allowedMap[me.email.toLowerCase()]?.slug);
+  const hasGlobal = globalEmails.includes(me?.email||'');
+  const hasChannel = myRbacChannels.includes(currentChannelId);
+  const canWriteHere = hasGlobal || hasChannel;
   
   bar.classList.toggle('blocked', !canWriteHere);
   notice.classList.toggle('show', !canWriteHere);
@@ -600,10 +604,10 @@ function closeWritePerms(){ document.getElementById('writePermModal').style.disp
 function renderWritePermDropdown(grantedEmails){
   const list=document.getElementById('writePermList'); if(!list)return;
   const admins=Object.entries(_allowedMap).filter(([email])=>email!==ADMIN_EMAIL.toLowerCase());
-  if(!admins.length){ list.innerHTML='<div style="padding:12px 6px;text-align:center;color:#aaa;font-size:12px;">אין משתמשים להצגה</div>'; return; }
+  if(!admins.length){ list.innerHTML='<div style="padding:12px 6px;text-align:center;color:#aaa;font-size:12px;">אין מנהלים משניים</div>'; return; }
   list.innerHTML=admins.map(([email,info])=>{
     const isGranted=grantedEmails.includes(email); const pic=info.picture||''; const initials=(info.name||email)[0].toUpperCase();
-    const av=pic?`<img src="${escAttr(pic)}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;">`:`<div style="width:30px;height:30px;border-radius:50%;background:#1a56db;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>`;
+    const av=pic?`<img src="${escAttr(pic)}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;">`:`<div style="width:30px;height:30px;border-radius:50%;background:${chatCol(info.name||email)};color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>`;
     return `<div onclick="toggleWritePerm('${escAttr(email)}',event)" style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:10px;cursor:pointer;background:${isGranted?'#eff6ff':'transparent'};border:1.5px solid ${isGranted?'#bfdbfe':'transparent'};transition:background .12s,border-color .12s;">${av}<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(info.name||email)}</div><div style="font-size:10px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(email)}</div></div><div style="width:18px;height:18px;border-radius:50%;border:2px solid ${isGranted?'#1a56db':'#d1d5db'};background:${isGranted?'#1a56db':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${isGranted?'<i class="fas fa-check" style="font-size:8px;color:#fff;"></i>':''}</div></div>`;
   }).join('');
 }
@@ -699,6 +703,12 @@ async function pollUpdateMode(){
   }catch(e){}
 }
 
+document.addEventListener('click',function(e){
+  const pop=document.getElementById('updateModePopover'); const hdrBtn=document.getElementById('updateModeHdrBtn');
+  if(pop&&pop.classList.contains('open')&&!pop.contains(e.target)&&!hdrBtn?.contains(e.target)){ pop.classList.remove('open'); }
+});
+
+
 /* ── LEADERBOARD ── */
 let lbData = [];
 function openLeaderboard() { document.getElementById('leaderboardModal').style.display = 'flex'; loadLeaderboardData(); }
@@ -748,11 +758,17 @@ window.addEventListener('load', fetchSiteSettings);
 
 function openSiteSettings(){
     document.getElementById('siteSettingsModal').classList.add('open');
+    document.getElementById('settingsSiteTitle').value = siteGlobalSettings.title || "בינה ודעה";
     document.getElementById('settingsCommentsEnable').checked = siteGlobalSettings.commentsEnabled;
     renderBlockedUsers();
 }
 function closeSiteSettings(){ document.getElementById('siteSettingsModal').classList.remove('open'); }
 
+async function saveSiteTitle(){
+    const val = document.getElementById('settingsSiteTitle').value.trim(); if(!val) return;
+    siteGlobalSettings.title = val; initGlobalSettings();
+    if(isSuperAdmin()) { await fetch(BACKEND+'/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({admin_email:me.email, title:val})}); alert('שם האתר עודכן בשרת!'); }
+}
 
 async function saveCommentsSettings() {
     const isEnabled = document.getElementById('settingsCommentsEnable').checked; siteGlobalSettings.commentsEnabled = isEnabled;
@@ -785,38 +801,90 @@ async function assignRbac(){
     document.getElementById('rbacEmail').value = '';
 }
 
-// ייצוא מיילים כקובץ TXT
 async function exportEmailsToGroups() {
     if(!isSuperAdmin()) return;
     try {
-        const res = await fetch(BACKEND + '/api/export_emails?email=' + encodeURIComponent(me.email)); 
+        const res = await fetch(BACKEND + '/api/export_emails', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: me.email }) });
         const text = await res.text();
-        const blob = new Blob([text], {type: "text/plain;charset=utf-8"}); 
-        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); 
+        const blob = new Blob([text], {type: "text/plain;charset=utf-8"});
+        const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
         link.download = "community_emails.txt"; link.click();
     } catch(e) { alert("שגיאה בייצוא המיילים"); }
 }
 
+/* ── REPORTS SYSTEM (NEW!) ── */
+async function reportMsg(msgId) {
+    if(!me) return;
+    if(!confirm("לדווח על ההודעה כתוכן פוגעני? המנהלים יבדקו את הדיווח.")) return;
+    try {
+        const res = await fetch(BACKEND + '/feed_report', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:me.email, msgId:msgId})});
+        const d = await res.json();
+        if(d.status === 'ok') alert('הדיווח נשלח בהצלחה להנהלה. תודה.');
+        else alert('שגיאה בשליחת הדיווח');
+    } catch(e) { alert('שגיאת שרת'); }
+}
+
+async function openReportsModal() {
+    document.getElementById('reportsModal').style.display = 'flex';
+    document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> טוען דיווחים...</div>';
+    try {
+        const res = await fetch(BACKEND + '/reports_get?email=' + encodeURIComponent(me.email));
+        const d = await res.json();
+        const reports = d.reports || [];
+        if(!reports.length) { document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;">אין דיווחים פתוחים.</div>'; return; }
+        
+        document.getElementById('reportsList').innerHTML = reports.map(r => `
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:12px; margin-bottom:10px;">
+                <div style="font-weight:bold; color:#b91c1c; font-size:14px; margin-bottom:5px;">מדווח: ${esc(r.reporter)}</div>
+                <div style="font-size:12px; color:#4b5563; margin-bottom:10px; background:#fff; padding:8px; border-radius:6px; border:1px solid #e5e7eb;">
+                    <strong>תוכן ההודעה המקורית:</strong><br>
+                    ${esc(r.msgText).substring(0,100)}...
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button onclick="deleteReportedMsg('${r.msgId}', '${r.id}')" style="background:#dc2626; color:#fff; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:'Heebo'; font-weight:bold; font-size:12px;">מחק את הפוסט</button>
+                    <button onclick="dismissReport('${r.id}')" style="background:#f3f4f6; color:#374151; border:1px solid #d1d5db; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:'Heebo'; font-weight:bold; font-size:12px;">התעלם מהדיווח</button>
+                </div>
+            </div>
+        `).join('');
+    } catch(e) { document.getElementById('reportsList').innerHTML = '<div style="color:red;text-align:center;">שגיאה בטעינת הדיווחים</div>'; }
+}
+
+function closeReportsModal() { document.getElementById('reportsModal').style.display = 'none'; }
+
+async function deleteReportedMsg(msgId, reportId) {
+    if(!confirm("למחוק את הפוסט הזה מהאתר לתמיד?")) return;
+    await deleteFeedMsg(msgId);
+    await dismissReport(reportId);
+    openReportsModal(); // רענון הרשימה
+}
+
+async function dismissReport(reportId) {
+    try {
+        await fetch(BACKEND + '/report_resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:me.email, reportId:reportId})});
+        openReportsModal(); // רענון הרשימה
+    } catch(e) {}
+}
+
+
 /* ── UI HELPERS & EDITOR ── */
 function closeLightbox(){document.getElementById('lightbox').classList.remove('show');document.getElementById('lbImg').src='';}
 function openLightbox(src){document.getElementById('lbImg').src=src;document.getElementById('lightbox').classList.add('show');}
-function clearCompose(){document.getElementById('composeEditor').innerHTML='';composeImgUrl='';composeVidUrl='';composeHtmlCode='';composeBtns=[]; document.getElementById('composeEditor')._quoteData=null; updateAttachPreview();}
+function clearCompose(){document.getElementById('composeEditor').innerHTML='';composeImgUrl='';composeVidUrl='';composeHtmlCode='';composeBtns=[]; updateAttachPreview();}
 
 function showPreview(){
   const ed=document.getElementById('composeEditor'); const text=ed.innerText.trim();
   if(!text && !composeImgUrl && !composeHtmlCode && !composeVidUrl){ alert('אין מה להציג.'); return; }
-  const mockEntry = { id: 'preview', channel: currentChannelId, text: text, imgUrl: composeImgUrl, videoUrl: composeVidUrl, htmlCode: composeHtmlCode, sender: _allowedMap[me?.email?.toLowerCase()]?.name || me.name, time: 'עכשיו', ts: Date.now(), buttons: composeBtns, quote: ed._quoteData };
+  const mockEntry = { id: 'preview', channel: currentChannelId, profile: composeProfile, text: text, imgUrl: composeImgUrl, videoUrl: composeVidUrl, htmlCode: composeHtmlCode, sender: me ? me.name : 'תצוגה מקדימה', senderEmail: me ? me.email : '', time: 'עכשיו', date: 'היום', ts: Date.now(), buttons: composeBtns };
   document.getElementById('previewModalBody').innerHTML = buildMsg(mockEntry); document.getElementById('previewModal').style.display = 'flex';
 }
 function closePreview(){ document.getElementById('previewModal').style.display = 'none'; document.getElementById('previewModalBody').innerHTML = ''; }
 
-// הוספתי תמיכה מדויקת בצבעים ועיצוב גם אחרי משלוח
-function editorToMarkdown(el){ function nodeToText(node){ if(node.nodeType===Node.TEXT_NODE)return node.textContent; if(node.nodeType!==Node.ELEMENT_NODE)return''; if(node.getAttribute&&node.getAttribute('data-quote-preview'))return''; const tag=node.tagName.toLowerCase(); const inner=Array.from(node.childNodes).map(nodeToText).join(''); if(tag==='b'||tag==='strong')return'**'+inner+'**'; if(tag==='i'||tag==='em')return'_'+inner+'_'; if(tag==='u')return inner; if(tag==='br')return'\n'; if(tag==='font'){ const color=node.getAttribute('color'); if(color)return`\x02color:${color}\x03${inner}\x02/color\x03`; return inner; } if(tag==='span'){ const style=node.getAttribute('style')||''; const colorMatch=style.match(/color:\s*([^;]+)/); if(colorMatch)return`\x02color:${colorMatch[1].trim()}\x03${inner}\x02/color\x03`; return inner; } if(tag==='s')return`~~${inner}~~`; if(tag==='hr')return '\n---DIVIDER---\n'; if(tag==='a'){ const href=node.getAttribute('href')||''; if(href&&href.startsWith('http'))return`[${inner}](${href})`; return inner; } if(tag==='div'||tag==='p') return (node.previousElementSibling&&!node.previousElementSibling.getAttribute('data-quote-preview')?'\n':'')+inner; return inner; } return nodeToText(el); }
+function editorToMarkdown(el){ function nodeToText(node){ if(node.nodeType===Node.TEXT_NODE)return node.textContent; if(node.nodeType!==Node.ELEMENT_NODE)return''; if(node.getAttribute&&node.getAttribute('data-quote-preview'))return''; const tag=node.tagName.toLowerCase(); const inner=Array.from(node.childNodes).map(nodeToText).join(''); if(tag==='b'||tag==='strong')return'**'+inner+'**'; if(tag==='i'||tag==='em')return'_'+inner+'_'; if(tag==='u')return inner; if(tag==='br')return'\n'; if(tag==='font'){ const color=node.getAttribute('color'); if(color)return` color:${color} ${inner} /color `; return inner; } if(tag==='span'){ const style=node.getAttribute('style')||''; const colorMatch=style.match(/color:\s*([^;]+)/); if(colorMatch)return`\x02color:${colorMatch[1].trim()}\x03${inner}\x02/color\x03`; return inner; } if(tag==='s')return`~~${inner}~~`; if(tag==='hr')return '\n---DIVIDER---\n'; if(tag==='a'){ const href=node.getAttribute('href')||''; if(href&&href.startsWith('http'))return`[${inner}](${href})`; return inner; } if(tag==='div'||tag==='p') return (node.previousElementSibling&&!node.previousElementSibling.getAttribute('data-quote-preview')?'\n':'')+inner; return inner; } return nodeToText(el); }
 function onComposeChange(){ const ed=document.getElementById('composeEditor'); document.getElementById('composeCharCount').textContent=editorToMarkdown(ed).length; }
 function composeFormat(cmd){ const ed=document.getElementById('composeEditor'); ed.focus(); requestAnimationFrame(()=>{ document.execCommand(cmd,false,null); onComposeChange(); }); }
 function insertHeading(){ const ed=document.getElementById('composeEditor'); ed.focus(); document.execCommand('insertText',false,' •'); onComposeChange(); }
-function applyTextColor(color){ document.execCommand('styleWithCSS', false, true); document.execCommand('foreColor', false, color); closeAllCtbDropdowns(); onComposeChange(); }
-function removeTextColor(){ document.execCommand('removeFormat', false, 'foreColor'); closeAllCtbDropdowns(); onComposeChange(); }
+function applyTextColor(color){ const ed=document.getElementById('composeEditor'); ed.focus(); document.execCommand('foreColor',false,color); closeAllCtbDropdowns(); onComposeChange(); }
+function removeTextColor(){ const ed=document.getElementById('composeEditor'); ed.focus(); document.execCommand('foreColor',false,'#374151'); closeAllCtbDropdowns(); onComposeChange(); }
 function toggleCtbDropdown(id){ const el=document.getElementById(id); const wasOpen=el.classList.contains('open'); closeAllCtbDropdowns(); if(!wasOpen)el.classList.add('open'); }
 function closeAllCtbDropdowns(){ document.querySelectorAll('.ctb-dropdown').forEach(el=>el.classList.remove('open')); }
 function updateComposeImg(){ composeImgUrl=document.getElementById('composeImgUrl').value.trim(); const thumb=document.getElementById('composeImgThumb'); if(composeImgUrl){document.getElementById('composeImgThumbImg').src=composeImgUrl;thumb.style.display='block';}else{thumb.style.display='none';} updateAttachPreview(); }
@@ -829,74 +897,39 @@ function addComposeButton(){ const text=document.getElementById('composeBtnText'
 function removeComposeButton(id){ composeBtns=composeBtns.filter(b=>b.id!==id); renderComposeBtns();updateAttachPreview(); }
 function renderComposeBtns(){ document.getElementById('composeBtnList').innerHTML=composeBtns.map(b=>`<div style="display:inline-flex;align-items:center;gap:4px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:3px 8px;font-size:11px;font-weight:700;color:#ea580c;"><i class="fas fa-mouse-pointer" style="font-size:9px"></i>${esc(b.text)} <button onclick="removeComposeButton(${b.id})" style="background:none;border:none;cursor:pointer;color:#9ca3af;">✕</button></div>`).join(''); }
 
-let savedRange;
-function saveLinkSelection() { const sel = window.getSelection(); if(sel.rangeCount > 0) { savedRange = sel.getRangeAt(0); document.getElementById('composeLinkText').value = sel.toString(); } }
-function insertComposeLink() {
-    const url = document.getElementById('composeLinkUrl').value;
-    const text = document.getElementById('composeLinkText').value || url;
-    if(!url) return;
-    const a = `<a href="${url}" target="_blank" style="color:#1a56db;text-decoration:underline;">${text}</a>`;
-    if(savedRange) { const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(savedRange); document.execCommand('insertHTML', false, a); } 
-    else { document.getElementById('composeEditor').innerHTML += a; }
-    toggleCtbDropdown('linkDrop');
-}
-
 function updateAttachPreview(){
   const prev=document.getElementById('attachPreview'); const chips=[];
   if(composeImgUrl)chips.push(`<div class="attach-chip"><i class="fas fa-image" style="color:#1a56db;"></i> תמונה <button onclick="clearComposeImg()">✕</button></div>`);
   if(composeVidUrl)chips.push(`<div class="attach-chip"><i class="fas fa-video" style="color:#7c3aed;"></i> סרטון <button onclick="clearComposeVid()">✕</button></div>`);
   if(composeHtmlCode)chips.push(`<div class="attach-chip"><i class="fas fa-code" style="color:#059669;"></i> HTML <button onclick="clearHtmlCode()">✕</button></div>`);
   composeBtns.forEach(b=>chips.push(`<div class="attach-chip"><i class="fas fa-mouse-pointer" style="color:#ea580c;"></i> ${esc(b.text)} <button onclick="removeComposeButton(${b.id})">✕</button></div>`));
-  const ed = document.getElementById('composeEditor');
-  if(ed._quoteData) chips.push(`<div class="attach-chip"><i class="fas fa-quote-right" style="color:#aaa;"></i> צוטט: ${esc(ed._quoteData.sender)} <button onclick="document.getElementById('composeEditor')._quoteData=null;updateAttachPreview()">✕</button></div>`);
   prev.innerHTML=chips.join(''); prev.classList.toggle('show',chips.length>0);
-}
-
-// תגיות ותוויות
-function onSearch(val){ 
-    const qLow = val.toLowerCase();
-    const inner = document.getElementById('feedInner');
-    inner.innerHTML = '';
-    const filtered = items.filter(e => {
-        const t = (e.text||'').toLowerCase();
-        const tg = (e.tags||[]).join(' ').toLowerCase();
-        return t.includes(qLow) || tg.includes(qLow);
-    });
-    filtered.forEach(m => inner.innerHTML += buildMsg(m));
-}
-function clearSearch(){ 
-    document.getElementById('searchInput').value=''; 
-    renderChannels();
-    switchChannel('general');
 }
 
 async function sendFeedPost(){
   if(!me||!isAdmin())return;
-  const role = getRole();
-  const canWrite = (role === 'super' || role === 'manager' || role === 'supervisor' || currentChannelId === _allowedMap[me.email.toLowerCase()]?.slug);
-  if(!canWrite){alert('אין לך הרשאת כתיבה בערוץ זה');return;}
-  
-  const ed=document.getElementById('composeEditor'); 
-  const text = ed.innerHTML.trim(); // שומר על צבעים בקוד HTML
-  const tagsInput = document.getElementById('composeTagsInput')?.value.trim();
-  const tags = tagsInput ? tagsInput.split(',').map(t=>t.trim()).filter(t=>t) : [];
-
+  if(!isSuperAdmin()){ const canWrite = _writePerm?.emails?.includes(me.email) || _rbacData[me.email]?.includes(currentChannelId); if(!canWrite){alert('אין לך הרשאת כתיבה בערוץ זה');return;} }
+  const ed=document.getElementById('composeEditor'); const editorText=editorToMarkdown(ed).trim(); const text=(ed._quoteData?`\u200Bquote:${ed._quoteData.id}\n${ed._quoteData.text.split('\n').map(l=>'> '+l).join('\n')}\n\u200B\n\n`:'')+editorText;
   if(!text&&!composeImgUrl&&!composeHtmlCode){alert('הודעה ריקה');return;}
   const btn=document.getElementById('composeSendBtn'); btn.innerHTML='<i class="fas fa-spinner fa-spin"></i>'; btn.disabled=true;
-  
-  const displayName = _allowedMap[me.email.toLowerCase()]?.name || me.name;
-
   try{
-    const r=await fetch(BACKEND+'/feed_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel: currentChannelId, text: text, imgUrl:composeImgUrl, videoUrl:composeVidUrl, htmlCode:composeHtmlCode, sender:displayName, senderEmail:me.email, buttons:composeBtns, quote: ed._quoteData, tags: tags})});
+    const r=await fetch(BACKEND+'/feed_add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel: currentChannelId, profile:composeProfile, text, imgUrl:composeImgUrl, videoUrl:composeVidUrl, htmlCode:composeHtmlCode, sender:me.name, senderEmail:me.email, buttons:composeBtns})});
     const d=await r.json(); if(d.status==='ok'){ clearCompose(); document.getElementById('feedWrap').scrollTop=999999; await loadFeed(); } else { alert('שגיאה בשליחה'); }
   }catch(e){alert('שגיאת שרת');}
   btn.innerHTML='<i class="fas fa-paper-plane"></i>'; btn.disabled=false;
 }
 
+function toggleComposeProfile(){
+  composeProfile = composeProfile === 'news' ? 'red' : 'news';
+  const t=document.getElementById('profileToggle'); const lbl=document.getElementById('profileLabel'); const icon=document.getElementById('profileIcon'); const btn=document.getElementById('composeSendBtn');
+  if(composeProfile==='red'){ t.classList.add('red'); lbl.textContent='צבע אדום'; icon.className='fas fa-exclamation-triangle'; btn.classList.add('red'); }
+  else { t.classList.remove('red'); lbl.textContent='מבזק חדשות'; icon.className='fas fa-newspaper'; btn.classList.remove('red'); }
+}
+
 let _editMsgId=null;
 function openEditMsg(id){
   if(!isAdmin())return; const e=items.find(i=>i.id===id); if(!e)return; _editMsgId=id;
-  const ed=document.getElementById('composeEditor'); ed.innerHTML=e.text||'';
+  const ed=document.getElementById('composeEditor'); ed.innerText=e.text||'';
   composeImgUrl=e.imgUrl||''; composeVidUrl=e.videoUrl||''; composeHtmlCode=e.htmlCode||''; composeBtns=(e.buttons||[]).map(b=>({text:b.text,url:b.url}));
   if(composeImgUrl){ document.getElementById('composeImgUrl').value=composeImgUrl; const th=document.getElementById('composeImgThumb'); if(th){document.getElementById('composeImgThumbImg').src=composeImgUrl;th.style.display='flex';} }
   if(composeVidUrl)document.getElementById('composeVidUrl').value=composeVidUrl;
@@ -906,7 +939,7 @@ function openEditMsg(id){
 function cancelEditMode(){ _editMsgId=null; clearCompose(); document.getElementById('composeSendBtn').style.display='flex'; document.getElementById('composePreviewBtn').style.display='flex'; document.getElementById('composeEditConfirmBtn').style.display='none'; document.getElementById('composeEditCancelBtn').style.display='none'; document.getElementById('composeEditBanner').classList.remove('show'); }
 function closeEditMsg(){cancelEditMode();}
 async function saveEditMsg(){
-  if(!_editMsgId||!me)return; const ed=document.getElementById('composeEditor'); const editorText=ed.innerHTML.trim();
+  if(!_editMsgId||!me)return; const ed=document.getElementById('composeEditor'); const editorText=editorToMarkdown(ed).trim();
   if(!editorText&&!composeImgUrl&&!composeHtmlCode){alert('ההודעה לא יכולה להיות ריקה');return;}
   const btn=document.getElementById('composeEditConfirmBtn'); btn.innerHTML='<i class="fas fa-spinner fa-spin" style="font-size:12px"></i>';btn.disabled=true;
   try{
@@ -930,7 +963,22 @@ async function toggleNotifications(){
 function initNotifications(){if(localStorage.getItem('shaagat_notif')==='1'&&Notification.permission==='granted'){notificationsOn=true;document.getElementById('notifBtn')?.classList.add('active');}}
 function sendNotification(title,body){if(notificationsOn&&Notification.permission==='granted'&&document.visibilityState!=='visible') new Notification(title||'בינה ודעה',{body:body||'הודעה חדשה',icon:LOGO});}
 
-/* ── ADS (WITH HTML FULL SUPPORT) ── */
+let searchTimer=null;
+function toggleSearch(){ const bar=document.getElementById('searchBar');const btn=document.getElementById('searchBtn'); if(bar.classList.contains('open')){clearSearch();}else{bar.classList.add('open');btn.classList.add('active');setTimeout(()=>document.getElementById('searchInput').focus(),280);} }
+function onSearch(val){ const clear=document.getElementById('searchClear');clear.classList.toggle('show',val.length>0); clearTimeout(searchTimer); if(!val.trim()){document.getElementById('searchResults').style.display='none';document.getElementById('feedWrap').style.display='';return;} searchTimer=setTimeout(()=>doSearch(val.trim()),250); }
+async function doSearch(q){
+  const qLow=q.toLowerCase(); document.getElementById('feedWrap').style.display='none'; document.getElementById('searchResults').style.display='block'; const inner=document.getElementById('searchResultsInner'); const empty=document.getElementById('searchEmpty'); inner.innerHTML='<div style="text-align:center;padding:30px;color:#aaa;"><i class="fas fa-spinner fa-spin"></i> מחפש...</div>'; empty.style.display='none';
+  let allItems=[]; let before=0;
+  for(let page=0;page<10;page++){ try{ const url=before?BACKEND+`/feed?channel=${currentChannelId}&before=${before}&limit=50`:BACKEND+`/feed?channel=${currentChannelId}&limit=50`; const r=await fetch(url);const d=await r.json(); if(d.status!=='ok'||!d.feed.length)break; allItems.push(...d.feed); if(d.feed.length<50)break; before=Math.min(...d.feed.map(e=>e.ts||Infinity)); }catch(e){break;} }
+  const results=allItems.filter(e=>(e.text||'').toLowerCase().includes(qLow));
+  if(!results.length){inner.innerHTML='';empty.style.display='block';return;}
+  const escaped=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  inner.innerHTML=results.map(e=>buildMsg(e).replace(new RegExp(`(${escaped})`,'gi'),'<mark style="background:#fff176;border-radius:3px;padding:0 1px">$1</mark>')).join('');
+  results.forEach(e=>{if(rxnCache[e.id])renderRxn(e.id,rxnCache[e.id]);});
+}
+function clearSearch(){ document.getElementById('searchInput').value='';document.getElementById('searchClear').classList.remove('show'); document.getElementById('searchResults').style.display='none';document.getElementById('searchResultsInner').innerHTML=''; document.getElementById('searchEmpty').style.display='none';document.getElementById('feedWrap').style.display=''; document.getElementById('searchBar').classList.remove('open');document.getElementById('searchBtn').classList.remove('active'); }
+
+/* ── ADS ── */
 async function loadAd(){
   try{ const r=await fetch(BACKEND+'/ad_get');const d=await r.json(); if(d.side&&(d.side.imageUrl||d.side.htmlUrl||d.side.htmlCode)){showAdSide(d.side);}else{hideAdSide();} if(d.popup&&(d.popup.imageUrl||d.popup.htmlUrl||d.popup.htmlCode)&&shouldShowAd()){showAdPopup(d.popup);} }catch(e){}
 }
@@ -990,7 +1038,6 @@ async function deleteAd(type){
 }
 function showAdMsg(txt,color){ const el=document.getElementById('adMsg');el.textContent=txt;el.style.color=color==='green'?'#16a34a':'#dc2626';el.style.display='block'; setTimeout(()=>el.style.display='none',2000); }
 
-
 /* ── ADMIN MANAGEMENT (RBAC) ── */
 function openManageAdmins() {
     document.getElementById('manageAdminsModal').style.display = 'flex';
@@ -1003,11 +1050,12 @@ function renderAdminsList() {
     let html = '';
     Object.values(_allowedMap).forEach(u => {
         html += `
-        <div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:10px; border-radius:10px; border:1px solid #e5e7eb;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#f9fafb; padding:10px; border-radius:10px; border:1px solid #e5e7eb; margin-bottom: 5px;">
             <div>
                 <div style="font-weight:800; font-size:13px; color:#111;">${u.name} ${u.slug ? `<span style="color:#aaa;font-weight:400;">(${u.slug})</span>` : ''}</div>
                 <div style="font-size:11px; color:#666;">${u.role}</div>
             </div>
+            ${isSuperAdmin() && !SUPER_ADMINS.includes(u.email) ? `<button onclick="removeAdmin('${u.email}')" style="background:#fef2f2; color:#dc2626; border:1px solid #fecaca; padding:4px 8px; border-radius:6px; cursor:pointer; font-size:11px;">הסר</button>` : ''}
         </div>`;
     });
     list.innerHTML = html;
@@ -1024,9 +1072,52 @@ async function addAdmin() {
     
     try {
         const r = await fetch(BACKEND + '/allowed_add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ admin_email: me.email, email, name, slug, role }) });
-        if((await r.json()).status === 'success') { document.getElementById('newAdminEmail').value = ''; document.getElementById('newAdminName').value = ''; document.getElementById('newAdminSlug').value = ''; await loadAllowedMap(); renderAdminsList(); }
+        if((await r.json()).status === 'success') {
+            document.getElementById('newAdminEmail').value = ''; document.getElementById('newAdminName').value = ''; 
+            if(document.getElementById('newAdminSlug')) document.getElementById('newAdminSlug').value = '';
+            
+            const msgBox = document.getElementById('adminMsgResult');
+            msgBox.style.display = 'block'; msgBox.style.color = 'green'; msgBox.innerText = 'המשתמש הוסף בהצלחה!';
+            setTimeout(() => msgBox.style.display = 'none', 3000);
+            
+            await loadAllowedMap(); renderAdminsList(); 
+        }
     } catch(e) { alert('שגיאה'); }
 }
+
+async function removeAdmin(targetEmail) {
+    if(!confirm(`האם אתה בטוח שברצונך להסיר את ${targetEmail}?`)) return;
+    try {
+        const r = await fetch(BACKEND + '/allowed_remove', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ admin_email: me.email, target_email: targetEmail }) });
+        if((await r.json()).status === 'success') {
+            await loadAllowedMap(); renderAdminsList();
+        }
+    } catch(e) { alert('שגיאה בהסרת המשתמש'); }
+}
+
+// צ'אט מנהלים
+async function loadAdminChat() {
+    try {
+        const r = await fetch(BACKEND + '/chat_get'); const d = await r.json();
+        const inner = document.getElementById('chatMessages');
+        if(d.chat && d.chat.length) {
+            inner.innerHTML = d.chat.map(c => `<div style="padding:5px; border-bottom:1px solid #eee; font-size:12px;"><strong>${esc(c.name)}:</strong> ${esc(c.text)} <span style="font-size:9px;color:#aaa;">${c.time}</span></div>`).join('');
+            inner.scrollTop = inner.scrollHeight;
+            document.getElementById('chatEmptyMsg').style.display = 'none';
+        } else { document.getElementById('chatEmptyMsg').style.display = 'block'; }
+    } catch(e) {}
+}
+async function sendChatMsg() {
+    const inp = document.getElementById('chatInput'); const text = inp.value.trim(); if(!text) return;
+    inp.value = '';
+    const displayName = _allowedMap[me.email]?.name || me.name;
+    try { await fetch(BACKEND + '/chat_add', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: me.email, name: displayName, text }) }); loadAdminChat(); } catch(e) {}
+}
+function handleChatInputKey(e) { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); } }
+function pingChatPresence() {}
+function pollChatTyping() {}
+function loadAdminMsgs() {}
+function openAdminMsgs() {}
 
 
 function tryInitGoogle() { if (window.google && window.google.accounts) { initGoogle(); } else { setTimeout(tryInitGoogle, 100); } }

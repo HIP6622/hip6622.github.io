@@ -265,7 +265,7 @@ async function loadAdminUsers(){
   }catch(e){}
 }
 
-async function handleLogin(resp) {
+async function handleGoogle(resp) {
   let payload = {};
   try {
     // פיענוח בטוח של הנתונים מגוגל (JWT)

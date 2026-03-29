@@ -891,17 +891,37 @@ function switchLbView(viewType) {
   }
 }
 
-/* ── SETTINGS & EXPORT ── */
 async function fetchSiteSettings() {
     try {
         const r = await fetch(BACKEND + '/api/settings');
-        if(r.ok) {
+        const contentType = r.headers.get("content-type");
+        
+        if (r.ok && contentType && contentType.includes("application/json")) {
             siteGlobalSettings = await r.json();
-            if(siteGlobalSettings.commentsEnabled === undefined) siteGlobalSettings.commentsEnabled = true;
+        } else {
+            siteGlobalSettings = { 
+                title: "Bina VeDea", 
+                commentsEnabled: true, 
+                blockedEmails: [] 
+            };
+        }
+
+        if (siteGlobalSettings.commentsEnabled === undefined) {
+            siteGlobalSettings.commentsEnabled = true;
+        }
+
+        if (typeof initGlobalSettings === "function") {
             initGlobalSettings();
         }
-    } catch(e) {}
+    } catch (e) {
+        siteGlobalSettings = { 
+            title: "Bina VeDea", 
+            commentsEnabled: true, 
+            blockedEmails: [] 
+        };
+    }
 }
+
 window.addEventListener('load', fetchSiteSettings);
 
 function openSiteSettings(){

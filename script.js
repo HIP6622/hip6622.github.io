@@ -15,19 +15,19 @@ let me = null, items = [], lastTs = 0, newCount = 0, atBottom = true;
 let activePicker = null, activeCmtMsgId = null;
 let rxnCache = {}, cmtCount = {};
 const knownIds = new Set();
-let pollPending = false, oldestTs = 0, allLoaded = false, loadingMore = false, _isAllowedAdmin = false;
+let pollPending = false, oldestTs = 0, allLoaded = false, loadingMore = false;
 
 let composeProfile = 'news', composeImgUrl = '', composeVidUrl = '', composeBtns = [], composeHtmlCode = '';
 let chatLastIds = '', chatTypingTimer = null, adminMsgsLastId = null, adminMsgsUnread = 0;
-let _allowedMap = {}, _rbacData = {}, _writePerm = null, _adInChatData = null;
+let _allowedMap = {}, _adInChatData = null;
 let _updateMode=false, _updateUntil='';
 
 let siteGlobalSettings = { title: "בינה ודעה", blockedEmails: [], commentsEnabled: true };
 
-/* ── SETTINGS & EXPORT ── */
+/* ── SETTINGS & INITIALIZATION ── */
 async function fetchSiteSettings() {
     try {
-        const r = await fetch(BACKEND + '/api/settings');
+        const r = await fetch(BACKEND + '/api/settings?t=' + Date.now());
         const contentType = r.headers.get("content-type");
         if (r.ok && contentType && contentType.includes("application/json")) {
             siteGlobalSettings = await r.json();
@@ -44,10 +44,12 @@ async function fetchSiteSettings() {
 window.addEventListener('load', fetchSiteSettings);
 
 function initGlobalSettings() {
-    document.getElementById('pageTitle').innerText = siteGlobalSettings.title;
+    const pageTitle = document.getElementById('pageTitle');
+    if(pageTitle) pageTitle.innerText = siteGlobalSettings.title;
     const hdr = document.getElementById('hdrChannelName');
     if (hdr) hdr.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${CHANNELS.find(c=>c.id===currentChannelId)?.name||'כללי'}</span>`;
-    const logT = document.getElementById('loginSiteTitle'); if(logT) logT.innerText = siteGlobalSettings.title;
+    const logT = document.getElementById('loginSiteTitle'); 
+    if(logT) logT.innerText = siteGlobalSettings.title;
 }
 
 let currentChannelId = 'general';
@@ -80,7 +82,7 @@ async function switchChannel(channelId, channelName) {
   if(window.innerWidth <= 900) document.getElementById('leftSidebar').classList.remove('open');
   items = []; lastTs = 0; knownIds.clear(); oldestTs = 0; allLoaded = false;
   document.getElementById('feedInner').innerHTML = ''; document.getElementById('empty').style.display = 'block';
-  applyWritePerm(_writePerm, _rbacData); 
+  applyWritePerm(); 
   await loadFeed();
 }
 
@@ -91,7 +93,6 @@ function esc(t){return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replac
 function escAttr(t){return esc(t).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 function isSuperAdmin(){return SUPER_ADMINS.includes(me?.email?.toLowerCase());}
-function isAdmin(){return _isAllowedAdmin;}
 
 function getRole() {
     if(!me) return 'visitor';
@@ -99,45 +100,72 @@ function getRole() {
     return _allowedMap[me.email.toLowerCase()]?.role || 'visitor';
 }
 
+function isAdmin(){
+    const role = getRole();
+    return role === 'super' || role === 'manager';
+}
+
 async function checkAllowedAdmin(){
   if(!me)return;
-  try{
-    const r=await fetch(BACKEND+'/allowed_list'); const d=await r.json();
-    const emails=(d.emails||[]).map(e=>typeof e==='string'?e:e.email).map(e=>e.toLowerCase());
-    _isAllowedAdmin=emails.includes(me.email.toLowerCase())||isSuperAdmin();
-  }catch(e){_isAllowedAdmin=isSuperAdmin();}
+  await loadAllowedMap();
+  const role = getRole();
+  
+  if(isAdmin()) {
+      document.getElementById('rightSidebar').classList.add('show');
+      document.getElementById('adminChatPanel').classList.add('show');
+      
+      if(typeof loadAdminChat === 'function') { loadAdminChat(); setInterval(loadAdminChat, 2500); setInterval(pollChatTyping, 2500); }
+      if(typeof loadAdminMsgs === 'function') { loadAdminMsgs(); setInterval(loadAdminMsgs, 5000); }
+      if(typeof pingChatPresence === 'function') { pingChatPresence(); setInterval(pingChatPresence, 15000); }
+      
+      pollUpdateMode(); setInterval(pollUpdateMode, 5000);
+      document.getElementById('feedWrap').style.paddingBottom='120px';
+  }
+  
+  const displayName = _allowedMap[me.email.toLowerCase()]?.name || me.name;
+  const composerNameBadge = document.getElementById('composerNameBadge');
+  if(composerNameBadge) composerNameBadge.innerText = 'כותב בתור: ' + displayName;
+  
+  applyWritePerm();
+}
 
-  if(_isAllowedAdmin){
-    await loadAllowedMap();
-    const role = getRole();
-    
-    if(role === 'super' || role === 'supervisor' || role === 'manager') {
-        document.getElementById('rightSidebar').classList.add('show');
-        document.getElementById('adminChatPanel').classList.add('show');
-        document.getElementById('adminComposeBar').classList.add('show');
-    }
-    
-    const displayName = _allowedMap[me.email.toLowerCase()]?.name || me.name;
-    document.getElementById('composerNameBadge').innerText = 'כותב בתור: ' + displayName;
-    
-    if(typeof loadAdminChat === 'function') { loadAdminChat(); setInterval(loadAdminChat, 2500); setInterval(pollChatTyping, 2500); }
-    if(typeof loadAdminMsgs === 'function') { loadAdminMsgs(); setInterval(loadAdminMsgs, 5000); }
-    if(typeof pingChatPresence === 'function') { pingChatPresence(); setInterval(pingChatPresence, 15000); }
-    
-    await pollWritePerm(); setInterval(pollWritePerm, 3000);
-    pollUpdateMode(); setInterval(pollUpdateMode, 5000);
-    document.getElementById('feedWrap').style.paddingBottom='120px';
+function applyWritePerm(){
+  const bar = document.getElementById('adminComposeBar');
+  const notice = document.getElementById('blockNotice');
+  if(!bar) return;
+  
+  const role = getRole();
+  const myEmail = me?.email?.toLowerCase();
+  const mySlug = _allowedMap[myEmail]?.slug;
+  
+  let canWrite = false;
+  if (role === 'super' || role === 'manager') {
+      canWrite = true;
+  } else if (role === 'user' && mySlug && currentChannelId === mySlug) {
+      canWrite = true;
   }
 
-  if(isSuperAdmin()){
-    document.getElementById('adminComposeBar')?.classList.remove('blocked');
-    document.getElementById('blockNotice')?.classList.remove('show');
+  // הצגת שורת הניהול/כתיבה למי שמוגדר במערכת במשהו (יוצר או מנהל)
+  if (role === 'super' || role === 'manager' || mySlug) {
+      bar.classList.add('show');
+      if (canWrite) {
+          bar.classList.remove('blocked');
+          if(notice) notice.classList.remove('show');
+      } else {
+          bar.classList.add('blocked');
+          if(notice) {
+              notice.classList.add('show');
+              notice.innerText = 'אין לך הרשאת כתיבה בערוץ זה';
+          }
+      }
+  } else {
+      bar.classList.remove('show');
   }
 }
 
 async function loadAllowedMap(){
   try{
-    const r=await fetch(BACKEND+'/allowed_list');
+    const r=await fetch(BACKEND+'/allowed_list?t=' + Date.now());
     const d=await r.json();
     _allowedMap={};
     (d.emails||[]).forEach(e=>{
@@ -145,7 +173,6 @@ async function loadAllowedMap(){
         _allowedMap[e.email.toLowerCase()]={name:e.name||e.email.split('@')[0], picture:e.picture||'', slug:e.slug||'', role:e.role||'user'};
       }
     });
-    _allowedMap[ADMIN_EMAIL.toLowerCase()]={name:'דוד',picture:me?.picture||'', role:'super'};
     renderChannels();
     if(me) refreshUserMenu();
   }catch(ex){}
@@ -156,10 +183,11 @@ function refreshUserMenu(){
   const role = getRole();
   const avatarHtml=me.picture?`<img src="${escAttr(me.picture)}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:2px solid #1a56db;box-shadow:0 2px 6px rgba(0,0,0,0.1)">`:`<div style="width:34px;height:34px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.1)">${esc(me.name[0].toUpperCase())}</div>`;
   let adminMenuHtml = '';
-  if(role === 'super' || role === 'supervisor' || role === 'manager') {
+  
+  if(isAdmin()) {
       adminMenuHtml += `
         <div style="border-top:1px solid #e5e7eb; margin-top:8px; padding-top:8px;">
-          <div style="padding:0 14px 6px;font-size:11px;font-weight:800;color:#1a56db;text-transform:uppercase;letter-spacing:0.5px;">ניהול האתר</div>
+          <div style="padding:0 14px 6px;font-size:11px;font-weight:800;color:#1a56db;text-transform:uppercase;letter-spacing:0.5px;">ניהול מערכת</div>
           <button onclick="openLeaderboard()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-chart-bar" style="color:#ea580c;width:16px;"></i> סטטיסטיקות</button>
           <button onclick="openReportsModal()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-flag" style="color:#dc2626;width:16px;"></i> דיווחי משתמשים</button>
       `;
@@ -168,7 +196,6 @@ function refreshUserMenu(){
       adminMenuHtml += `
           <button onclick="openManageAdmins()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-user-cog" style="color:#1a56db;width:16px;"></i> יוצרים וצוות</button>
           <button onclick="openSiteSettings()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-tools" style="color:#7c3aed;width:16px;"></i> הגדרות וחסימות</button>
-          <button onclick="openWritePerms()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-pen" style="color:#059669;width:16px;"></i> הרשאות כתיבה</button>
           <button onclick="openAdPanel()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-ad" style="color:#ca8a04;width:16px;"></i> פרסומות</button>
           <button onclick="if(typeof openAdminMsgs==='function')openAdminMsgs()" style="width:100%;padding:8px 14px;text-align:right;background:none;border:none;cursor:pointer;font-size:13px;font-weight:600;color:#374151;display:flex;align-items:center;gap:10px;"><i class="fas fa-bullhorn" style="color:#e02020;width:16px;"></i> הודעות למנהלים</button>
       `;
@@ -182,7 +209,7 @@ function refreshUserMenu(){
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.name)}</div>
         <div style="font-size:11px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(me.email)}</div>
-        <div style="font-size:10px;font-weight:800;color:#1a56db;">${role}</div>
+        <div style="font-size:10px;font-weight:800;color:#1a56db;">${role === 'super' ? 'מנהל ראשי' : role === 'manager' ? 'מנהל' : 'יוצר'}</div>
       </div>
     </div>
     ${adminMenuHtml}
@@ -241,16 +268,17 @@ async function applyLogin(){
   
   av.innerHTML=`<div style="cursor:pointer" onclick="toggleUserMenu(event)">${avatarHtml}</div><div id="userMenu" style="display:none;"></div>`;
   
-  const mailBtn = document.querySelector('a[title="פנייה למנהל"]');
-  if(mailBtn) {
-      mailBtn.href = "mailto:0548537646a@gmail.com?subject=" + encodeURIComponent("לכבוד מנהל אתר בינה ודעה");
-      mailBtn.target = "_blank";
-  }
+  const mailBtns = document.querySelectorAll('a[title="פנייה למנהל"]');
+  mailBtns.forEach(btn => {
+      btn.href = "mailto:0548537646a@gmail.com?subject=" + encodeURIComponent("לכבוד מנהל אתר בינה ודעה");
+      btn.target = "_blank";
+  });
 
-  document.getElementById('loginScreen').style.display='none'; document.getElementById('app').style.display='flex'; document.getElementById('leftSidebar').style.display='flex';
+  document.getElementById('loginScreen').style.display='none'; 
+  document.getElementById('app').style.display='flex'; 
+  document.getElementById('leftSidebar').style.display='flex';
   renderChannels();
   
-  // רישום משתמש בשרת לספירה
   fetch(BACKEND+'/feed_login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(me) })
     .then(r=>r.json()).then(d=>{
         const pc = document.getElementById('publicUserCount');
@@ -281,7 +309,7 @@ async function handleGoogle(resp) {
   let displayName = '';
 
   try {
-    const lr = await fetch(BACKEND + '/allowed_list');
+    const lr = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
     const ld = await lr.json();
     const myEntry = (ld.emails || []).find(e => typeof e === 'object' && e.email === email);
     if (myEntry && myEntry.name && !myEntry.name.includes('×—') && myEntry.name !== email) {
@@ -327,7 +355,7 @@ function rich(t){
 function buildMsg(e){
   const id=e.id; 
   const role = getRole();
-  const canDel = isSuperAdmin() || (role === 'supervisor' && e.senderEmail === me?.email) || (role === 'manager' && e.senderEmail === me?.email);
+  const canDel = isSuperAdmin() || role === 'manager' || (role === 'user' && e.senderEmail === me?.email);
   
   let content=`<div class="bubble-text">${rich(e.text||'')}</div>`;
   let media='';
@@ -360,7 +388,7 @@ function buildMsg(e){
   }
   
   const n=cmtCount[id]||0;
-  return `<div class="msg-row" data-id="${escAttr(id)}"><img class="msg-av" src="${LOGO}" onerror="this.style.display='none'"><div class="msg-col"><div class="msg-meta"><span class="msg-meta-name">${esc(siteGlobalSettings.title)}</span><span class="msg-meta-time">${e.time||''}</span>${e.edited?'<span class="msg-meta-edited">נערכה</span>':''}<span class="msg-meta-sender">${esc(e.sender)}</span></div><div class="bubble-wrap-outer"><div class="bubble-top-actions"><button class="link-btn" onclick="copyMsgLink('${escAttr(id)}',this)" title="העתק קישור"><i class="fas fa-link"></i></button><button class="cmt-btn${n>0?' has-cmt':''}" id="cbtn-${escAttr(id)}" onclick="openComments('${escAttr(id)}')"><i class="fas fa-comment"></i>${n>0?`<span style="font-size:9px;font-weight:800;margin-right:2px">${n}</span>`:''}</button><button class="msg-action-btn" onclick="reportMsg('${escAttr(id)}')" title="דווח על תוכן פוגעני"><i class="fas fa-flag"></i></button>${isAdmin()?`<button class="msg-action-btn edit" onclick="openEditMsg('${escAttr(id)}')"><i class="fas fa-pen"></i></button><button class="msg-action-btn quote" onclick="quoteFeedMsg('${escAttr(id)}')"><i class="fas fa-quote-right"></i></button>`:''}${canDel?`<button class="msg-action-btn del" onclick="deleteFeedMsg('${escAttr(id)}')"><i class="fas fa-trash"></i></button>`:''}</div><div class="bubble">${quoteHtml}${content}${media}${btns}${tagsHtml}</div></div><div class="bubble-foot"><div class="rxn-row" id="rxn-${escAttr(id)}"><button class="rxn-add-btn" onclick="openPicker(event,'${escAttr(id)}')">${REACT_SVG}</button></div></div></div></div>`;
+  return `<div class="msg-row" data-id="${escAttr(id)}"><img class="msg-av" src="${LOGO}" onerror="this.style.display='none'"><div class="msg-col"><div class="msg-meta"><span class="msg-meta-name">${esc(siteGlobalSettings.title)}</span><span class="msg-meta-time">${e.time||''}</span>${e.edited?'<span class="msg-meta-edited">נערכה</span>':''}<span class="msg-meta-sender">${esc(e.sender)}</span></div><div class="bubble-wrap-outer"><div class="bubble-top-actions"><button class="link-btn" onclick="copyMsgLink('${escAttr(id)}',this)" title="העתק קישור"><i class="fas fa-link"></i></button><button class="cmt-btn${n>0?' has-cmt':''}" id="cbtn-${escAttr(id)}" onclick="openComments('${escAttr(id)}')"><i class="fas fa-comment"></i>${n>0?`<span style="font-size:9px;font-weight:800;margin-right:2px">${n}</span>`:''}</button><button class="msg-action-btn" onclick="reportMsg('${escAttr(id)}')" title="דווח על תוכן פוגעני"><i class="fas fa-flag"></i></button>${isAdmin()||(role==='user'&&e.senderEmail===me?.email)?`<button class="msg-action-btn edit" onclick="openEditMsg('${escAttr(id)}')"><i class="fas fa-pen"></i></button><button class="msg-action-btn quote" onclick="quoteFeedMsg('${escAttr(id)}')"><i class="fas fa-quote-right"></i></button>`:''}${canDel?`<button class="msg-action-btn del" onclick="deleteFeedMsg('${escAttr(id)}')"><i class="fas fa-trash"></i></button>`:''}</div><div class="bubble">${quoteHtml}${content}${media}${btns}${tagsHtml}</div></div><div class="bubble-foot"><div class="rxn-row" id="rxn-${escAttr(id)}"><button class="rxn-add-btn" onclick="openPicker(event,'${escAttr(id)}')">${REACT_SVG}</button></div></div></div></div>`;
 }
 
 function copyMsgLink(id, btn){
@@ -439,7 +467,8 @@ async function deleteFeedMsg(id){
 }
 
 function quoteFeedMsg(id){
-  if(!isAdmin()) return;
+  const role = getRole();
+  if(role !== 'super' && role !== 'manager' && role !== 'user') return;
   const entry=items.find(e=>e.id===id);
   if(!entry) return;
   const ed=document.getElementById('composeEditor');
@@ -501,7 +530,7 @@ async function submitReport() {
         const d = await res.json();
         if(d.status === 'ok') { closeReportModal(); showToast('הדיווח נשלח בהצלחה. תודה!', 'success'); }
         else { errEl.style.display='block'; errEl.textContent='שגיאה בשליחה, נסה שוב.'; }
-    } catch(e) { errEl.style.display='block'; errEl.textContent='שגיאת חיבור.'; }
+    } catch(e) { errEl.style.display='block'; errEl.textContent='שגיאת חיבור. הדיווח לא נשלח.'; }
     btn.disabled = false; btn.textContent = 'שלח דיווח';
 }
 function showToast(msg, type='success') {
@@ -515,7 +544,7 @@ async function openReportsModal() {
     document.getElementById('reportsModal').style.display = 'flex';
     document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;"><i class="fas fa-spinner fa-spin"></i> טוען דיווחים...</div>';
     try {
-        const res = await fetch(BACKEND + '/reports_get?email=' + encodeURIComponent(me.email));
+        const res = await fetch(BACKEND + '/reports_get?email=' + encodeURIComponent(me.email) + '&t=' + Date.now());
         const d = await res.json();
         const reports = d.reports || [];
         if(!reports.length) { document.getElementById('reportsList').innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;">אין דיווחים פתוחים.</div>'; return; }
@@ -578,7 +607,7 @@ async function loadComments(msgId){
   if(!cached)b.innerHTML='<div class="cp-spinner"><div class="cp-spinner-ring"></div>טוען...</div>';
   b.dataset.msgId=msgId;
   try{
-    const r=await fetch(BACKEND+'/feed_comments?msgId='+encodeURIComponent(msgId)); const d=await r.json(); const list=d.comments||[];
+    const r=await fetch(BACKEND+'/feed_comments?msgId='+encodeURIComponent(msgId)+'&t='+Date.now()); const d=await r.json(); const list=d.comments||[];
     cmtCount[msgId]=list.length; updateCmtBtn(msgId,list.length);
     b.innerHTML=list.length?list.map(c=>buildCmt(msgId,c)).join(''):'<div class="no-cmt">עדיין אין תגובות</div>';
     b.scrollTop=b.scrollHeight;
@@ -623,7 +652,7 @@ async function delCmt(msgId,cid){
 async function loadFeed(){
   setLoading(true);
   try{
-    const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&limit=20`); const d=await r.json();
+    const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&limit=20&t=${Date.now()}`); const d=await r.json();
     if(d.status==='ok'){
       items=[...d.feed].reverse(); items.forEach(e=>knownIds.add(e.id)); allLoaded=d.feed.length<20; oldestTs=items.length?Math.min(...items.map(e=>e.ts||Infinity)):0; lastTs=items.length?Math.max(...items.map(e=>e.ts||0)):0;
       const inner=document.getElementById('feedInner');
@@ -639,7 +668,7 @@ async function loadMore(){
   if(loadingMore||allLoaded||!oldestTs)return;
   loadingMore=true;document.getElementById('loadMoreSpinner').classList.add('show');
   try{
-    const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&before=${oldestTs}&limit=20`);
+    const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&before=${oldestTs}&limit=20&t=${Date.now()}`);
     const d=await r.json();
     if(d.status==='ok'&&d.feed.length){
       const older=d.feed.filter(e=>!knownIds.has(e.id)).reverse();
@@ -683,65 +712,6 @@ function scrollToBottom(){document.getElementById('feedWrap').scrollTo({top:9999
 function updateScrollBtn(){const btn=document.getElementById('scrollDownBtn'); if(!atBottom){btn.classList.add('show');if(newCount>0)btn.classList.add('has-new');else btn.classList.remove('has-new');}else{btn.classList.remove('show','has-new');newCount=0;}}
 document.getElementById('feedWrap').addEventListener('scroll',function(){atBottom=(this.scrollHeight-this.scrollTop-this.clientHeight)<80;updateScrollBtn();},{passive:true});
 function setLoading(v){document.getElementById('prog').classList.toggle('on',v);}
-
-async function pollWritePerm(){
-  if(!isAdmin())return;
-  try{
-    const p1 = fetch(BACKEND+'/write_perm_get').then(r=>r.json());
-    const p2 = fetch(BACKEND+'/api/rbac').then(r=>r.json());
-    const [resPerm, resRbac] = await Promise.all([p1, p2]);
-    if(resPerm.status==='ok') _writePerm = resPerm.perm;
-    _rbacData = resRbac;
-    applyWritePerm(_writePerm, _rbacData);
-  }catch(e){}
-}
-
-function applyWritePerm(perm, rbac){
-  _writePerm=perm; _rbacData=rbac;
-  const bar=document.getElementById('adminComposeBar');
-  const notice=document.getElementById('blockNotice');
-  if(!bar)return;
-  
-  const role = getRole();
-  if(role === 'super') {
-    bar.classList.remove('blocked'); notice.classList.remove('show');
-    return;
-  }
-  
-  const myEmail = me?.email?.toLowerCase();
-  const hasWritePerm = (_writePerm?.emails || []).includes(myEmail);
-  const isMySlugChannel = currentChannelId === _allowedMap[myEmail]?.slug;
-  const canWriteHere = (role === 'manager' || role === 'supervisor') || hasWritePerm || isMySlugChannel;
-
-  bar.classList.toggle('blocked', !canWriteHere);
-  notice.classList.toggle('show', !canWriteHere);
-}
-
-function openWritePerms(){
-  document.getElementById('writePermModal').style.display='flex';
-  renderWritePermDropdown(_writePerm?.emails||[]);
-}
-function closeWritePerms(){ document.getElementById('writePermModal').style.display='none'; }
-
-function renderWritePermDropdown(grantedEmails){
-  const list=document.getElementById('writePermList'); if(!list)return;
-  const admins=Object.entries(_allowedMap).filter(([email])=>email!==ADMIN_EMAIL.toLowerCase());
-  if(!admins.length){ list.innerHTML='<div style="padding:12px 6px;text-align:center;color:#aaa;font-size:12px;">אין משתמשים להצגה</div>'; return; }
-  list.innerHTML=admins.map(([email,info])=>{
-    const isGranted=grantedEmails.includes(email); const pic=info.picture||''; const initials=(info.name||email)[0].toUpperCase();
-    const av=pic?`<img src="${escAttr(pic)}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;">`:`<div style="width:30px;height:30px;border-radius:50%;background:#1a56db;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>`;
-    return `<div onclick="toggleWritePerm('${escAttr(email)}',event)" style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:10px;cursor:pointer;background:${isGranted?'#eff6ff':'transparent'};border:1.5px solid ${isGranted?'#bfdbfe':'transparent'};transition:background .12s,border-color .12s;">${av}<div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:800;color:#111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(info.name||email)}</div><div style="font-size:10px;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(email)}</div></div><div style="width:18px;height:18px;border-radius:50%;border:2px solid ${isGranted?'#1a56db':'#d1d5db'};background:${isGranted?'#1a56db':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${isGranted?'<i class="fas fa-check" style="font-size:8px;color:#fff;"></i>':''}</div></div>`;
-  }).join('');
-}
-
-async function toggleWritePerm(targetEmail,e){
-  if(e)e.stopPropagation(); if(!isSuperAdmin())return;
-  const grantedEmails=_writePerm?.emails||[]; const grant=!grantedEmails.includes(targetEmail);
-  try{
-    const r=await fetch(BACKEND+'/write_perm_set',{method:'POST',headers:{'Content-Type':'application/json'}, body:JSON.stringify({requester:me.email,target:targetEmail,grant})});
-    const d=await r.json(); if(d.status==='ok'){ applyWritePerm(d.perm, _rbacData); renderWritePermDropdown(d.perm.emails||[]); }
-  }catch(e){}
-}
 
 function onUpdateModeHdrClick(e){
   e.stopPropagation();
@@ -797,7 +767,7 @@ function isUntilExpired(until){
 async function pollUpdateMode(){
   if(!isAdmin())return;
   try{
-    const r=await fetch(BACKEND+'/update_mode_get'); const d=await r.json();
+    const r=await fetch(BACKEND+'/update_mode_get?t='+Date.now()); const d=await r.json();
     const hdrBtn=document.getElementById('updateModeHdrBtn'); if(hdrBtn)hdrBtn.style.display='inline-flex';
     if(_updateMode && isUntilExpired(_updateUntil)){ _updateMode=false; _updateUntil=''; applyUpdateModeUI(); saveUpdateModeToServer(false,''); }
     const myEntry=(d.updaters||[]).find(u=>u.email===me?.email?.toLowerCase());
@@ -838,7 +808,7 @@ async function loadLeaderboardData() {
   if(!lbEl) return;
   lbEl.innerHTML = '<div style="text-align:center; padding:40px; color:#aaa;"><i class="fas fa-spinner fa-spin fa-2x"></i><br>טוען נתונים...</div>';
   try {
-    const res = await fetch(BACKEND + '/api/leaderboard');
+    const res = await fetch(BACKEND + '/api/leaderboard?t=' + Date.now());
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const d = await res.json();
     if(d.status !== 'ok') throw new Error(d.error || 'server error');
@@ -982,9 +952,12 @@ function clearSearch(){
 }
 
 async function sendFeedPost(){
-  if(!me||!isAdmin())return;
+  if(!me) return;
   const role = getRole();
-  const canWrite = (role === 'super' || role === 'manager' || role === 'supervisor' || currentChannelId === _allowedMap[me.email.toLowerCase()]?.slug);
+  const myEmail = me.email.toLowerCase();
+  const mySlug = _allowedMap[myEmail]?.slug;
+  
+  const canWrite = (role === 'super' || role === 'manager' || (role === 'user' && mySlug && currentChannelId === mySlug));
   if(!canWrite){alert('אין לך הרשאת כתיבה בערוץ זה');return;}
   
   const ed=document.getElementById('composeEditor'); 
@@ -1007,7 +980,9 @@ async function sendFeedPost(){
 
 let _editMsgId=null;
 function openEditMsg(id){
-  if(!isAdmin())return; const e=items.find(i=>i.id===id); if(!e)return; _editMsgId=id;
+  const role = getRole();
+  if(role !== 'super' && role !== 'manager' && role !== 'user') return; 
+  const e=items.find(i=>i.id===id); if(!e)return; _editMsgId=id;
   const ed=document.getElementById('composeEditor'); ed.innerHTML=e.text||'';
   composeImgUrl=e.imgUrl||''; composeVidUrl=e.videoUrl||''; composeHtmlCode=e.htmlCode||''; composeBtns=(e.buttons||[]).map(b=>({text:b.text,url:b.url}));
   if(composeImgUrl){ document.getElementById('composeImgUrl').value=composeImgUrl; const th=document.getElementById('composeImgThumb'); if(th){document.getElementById('composeImgThumbImg').src=composeImgUrl;th.style.display='flex';} }
@@ -1052,7 +1027,7 @@ function sendNotification(title,body){if(notificationsOn&&Notification.permissio
 async function doSearch(q){
   const qLow=q.toLowerCase(); document.getElementById('feedWrap').style.display='none'; document.getElementById('searchResults').style.display='block'; const inner=document.getElementById('searchResultsInner'); const empty=document.getElementById('searchEmpty'); inner.innerHTML='<div style="text-align:center;padding:30px;color:#aaa;"><i class="fas fa-spinner fa-spin"></i> מחפש...</div>'; empty.style.display='none';
   let allItems=[]; let before=0;
-  for(let page=0;page<10;page++){ try{ const url=before?BACKEND+`/feed?channel=${currentChannelId}&before=${before}&limit=50`:BACKEND+`/feed?channel=${currentChannelId}&limit=50`; const r=await fetch(url);const d=await r.json(); if(d.status!=='ok'||!d.feed.length)break; allItems.push(...d.feed); if(d.feed.length<50)break; before=Math.min(...d.feed.map(e=>e.ts||Infinity)); }catch(e){break;} }
+  for(let page=0;page<10;page++){ try{ const url=before?BACKEND+`/feed?channel=${currentChannelId}&before=${before}&limit=50&t=${Date.now()}`:BACKEND+`/feed?channel=${currentChannelId}&limit=50&t=${Date.now()}`; const r=await fetch(url);const d=await r.json(); if(d.status!=='ok'||!d.feed.length)break; allItems.push(...d.feed); if(d.feed.length<50)break; before=Math.min(...d.feed.map(e=>e.ts||Infinity)); }catch(e){break;} }
   const results=allItems.filter(e=>(e.text||'').toLowerCase().includes(qLow));
   if(!results.length){inner.innerHTML='';empty.style.display='block';return;}
   const escaped=q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -1061,7 +1036,7 @@ async function doSearch(q){
 }
 
 async function loadAd(){
-  try{ const r=await fetch(BACKEND+'/ad_get');const d=await r.json(); if(d.side&&(d.side.imageUrl||d.side.htmlUrl||d.side.htmlCode)){showAdSide(d.side);}else{hideAdSide();} if(d.popup&&(d.popup.imageUrl||d.popup.htmlUrl||d.popup.htmlCode)&&shouldShowAd()){showAdPopup(d.popup);} }catch(e){}
+  try{ const r=await fetch(BACKEND+'/ad_get?t=' + Date.now());const d=await r.json(); if(d.side&&(d.side.imageUrl||d.side.htmlUrl||d.side.htmlCode)){showAdSide(d.side);}else{hideAdSide();} if(d.popup&&(d.popup.imageUrl||d.popup.htmlUrl||d.popup.htmlCode)&&shouldShowAd()){showAdPopup(d.popup);} }catch(e){}
 }
 function shouldShowAd(){const last=parseInt(localStorage.getItem(AD_KEY)||'0');return Date.now()-last>AD_INTERVAL;}
 function markAdShown(){localStorage.setItem(AD_KEY,String(Date.now()));}
@@ -1099,7 +1074,7 @@ function closeAd(){document.getElementById('adOverlay')?.remove();}
 async function openAdPanel(){
   document.getElementById('adModal').style.display='flex';
   try{
-    const r=await fetch(BACKEND+'/ad_get');const d=await r.json();
+    const r=await fetch(BACKEND+'/ad_get?t=' + Date.now());const d=await r.json();
     if(d.popup){ document.getElementById('adPopupImageUrl').value=d.popup.imageUrl||''; document.getElementById('adPopupLinkUrl').value=d.popup.linkUrl||''; if(document.getElementById('adPopupHtmlUrl'))document.getElementById('adPopupHtmlUrl').value=d.popup.htmlCode||''; if(document.getElementById('adPopupTimer'))document.getElementById('adPopupTimer').value=d.popup.timer||0; }
     if(d.side){document.getElementById('adSideImageUrl').value=d.side.imageUrl||'';document.getElementById('adSideLinkUrl').value=d.side.linkUrl||'';if(document.getElementById('adSideHtmlUrl'))document.getElementById('adSideHtmlUrl').value=d.side.htmlCode||'';}
   }catch(e){}
@@ -1137,10 +1112,10 @@ let _chatTypingTimer = null;
 async function loadAdminChat(){
   if(!isAdmin()) return;
   try{
-    const r=await fetch(BACKEND+'/chat_messages');
+    const r=await fetch(BACKEND+'/chat_get?t=' + Date.now());
     const d=await r.json();
-    if(d.status!=='success') return;
-    const msgs=d.messages||[];
+    if(d.status!=='ok') return;
+    const msgs=d.chat||[];
     const sig=msgs.map(m=>m.id).join(',');
     if(sig===chatLastIds) return;
     const hadMsgs=chatLastIds!=='';
@@ -1227,7 +1202,7 @@ let _ctxMsgId=null;
 function showChatCtx(ev,msg,isMe){
   ev.stopPropagation();
   _ctxMsgId=msg.id;
-  const menu=document.getElementById('chatCtxMenu');
+const menu=document.getElementById('chatCtxMenu');
   if(!menu) return;
   const canDel=isMe||isSuperAdmin();
   menu.innerHTML=
@@ -1242,6 +1217,7 @@ function showChatCtx(ev,msg,isMe){
   });
 }
 function hideChatCtx(){ document.getElementById('chatCtxMenu')?.classList.remove('show'); }
+document.addEventListener('click',e=>{if(!e.target.closest('#chatCtxMenu')) hideChatCtx();});
 
 function copyChatMsg(id){
   const bub=document.querySelector(`.chat-bub[data-id="${id}"]`);
@@ -1313,6 +1289,7 @@ function handleChatInputKey(e){
   if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); sendChatMsg();}
 }
 
+// checkChatMention — @mention dropdown בסיסי
 function checkChatMention(inp) {
   const val = inp.value;
   const atIdx = val.lastIndexOf('@');
@@ -1342,11 +1319,15 @@ function insertMention(name) {
   inp.focus();
 }
 
+/* ══════════════════════════════════════════
+   הודעות למנהלים — Admin Broadcast Messages
+   ══════════════════════════════════════════ */
+
 let _adminMsgsKnownIds = new Set();
 
 async function loadAdminMsgs() {
   try {
-    const r = await fetch(BACKEND + '/admin_msgs_get');
+    const r = await fetch(BACKEND + '/admin_msgs_get?t=' + Date.now());
     const d = await r.json();
     if (d.status !== 'ok') return;
     const msgs = d.msgs || [];
@@ -1382,7 +1363,7 @@ async function openAdminMsgs() {
   const badge = document.getElementById('adminMsgsBadge');
   if (badge) badge.style.display = 'none';
   try {
-    const r = await fetch(BACKEND + '/admin_msgs_get');
+    const r = await fetch(BACKEND + '/admin_msgs_get?t=' + Date.now());
     const d = await r.json();
     if (d.status === 'ok') renderAdminMsgs(d.msgs || []);
   } catch(e) {
@@ -1414,6 +1395,10 @@ async function sendAdminMsg() {
   } catch(e) {}
 }
 
+/* ══════════════════════════════════════════
+   ניהול יוצרים וצוות — Manage Admins Modal
+   ══════════════════════════════════════════ */
+
 async function openManageAdmins() {
   document.getElementById('manageAdminsModal').style.display = 'flex';
   document.getElementById('adminMsgResult').style.display = 'none';
@@ -1429,15 +1414,15 @@ async function renderAdminsList() {
   if (!list) return;
   list.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;"><i class="fas fa-spinner fa-spin"></i> טוען...</div>';
   try {
-    const r = await fetch(BACKEND + '/allowed_list');
+    const r = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
     const d = await r.json();
     const users = (d.emails || []).filter(e => typeof e === 'object' && e.email);
     if (!users.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px;">אין יוצרים/צוות עדיין</div>'; return; }
-    const myRole = getRole();
+    
     list.innerHTML = users.map(u => {
       const pic = u.picture ? `<img src="${escAttr(u.picture)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">` : `<div style="width:36px;height:36px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;">${esc((u.name||u.email||'?')[0].toUpperCase())}</div>`;
-      const roleLabel = { super:'בעל אתר', supervisor:'פיקוח', manager:'מנהל', user:'יוצר' }[u.role] || 'יוצר';
-      const roleBadgeColor = { super:'#7c3aed', supervisor:'#dc2626', manager:'#1a56db', user:'#059669' }[u.role] || '#6b7280';
+      const roleLabel = { super:'בעל אתר', manager:'מנהל', user:'יוצר' }[u.role] || 'יוצר';
+      const roleBadgeColor = { super:'#7c3aed', manager:'#1a56db', user:'#059669' }[u.role] || '#6b7280';
       const canDelete = isSuperAdmin() && u.email !== ADMIN_EMAIL.toLowerCase();
       const isMe = u.email === me?.email?.toLowerCase();
       return `<div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:#f9fafb;border:1px solid #f0f0f0;">
@@ -1462,8 +1447,6 @@ async function addAdmin() {
   const role = document.getElementById('newAdminRole')?.value || 'user';
   if (!email || !name) { showAdminMsg('יש למלא אימייל ושם', 'red'); return; }
   if (!email.includes('@')) { showAdminMsg('אימייל לא תקין', 'red'); return; }
-  const myRole = getRole();
-  if (myRole === 'supervisor' && role !== 'user') { showAdminMsg('מפקח יכול להוסיף יוצרים בלבד', 'red'); return; }
   try {
     const r = await fetch(BACKEND + '/allowed_add', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1494,6 +1477,7 @@ async function removeAdmin(targetEmail) {
     });
     const d = await r.json();
     if (d.status === 'success') {
+      await new Promise(r => setTimeout(r, 400));
       await loadAllowedMap();
       await renderAdminsList();
       showAdminMsg('הוסר בהצלחה', 'green');
@@ -1510,28 +1494,40 @@ function showAdminMsg(txt, color) {
   setTimeout(() => el.style.display = 'none', 3000);
 }
 
-function tryInitGoogle() {
-  if (window.google && window.google.accounts) {
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogle,
-        auto_select: true
-      });
-      const saved = loadSavedUser();
-      if (saved) { verifyAndLogin(saved); }
-      else {
-        google.accounts.id.renderButton(
-          document.getElementById('googleBtn'),
-          { theme: 'outline', size: 'large', locale: 'he', width: 240 }
-        );
-        google.accounts.id.prompt();
-      }
-  } else {
-      setTimeout(tryInitGoogle, 100);
+function updateEmailCountBadge(count) {
+  const badge = document.getElementById('hdrEmailCountBadge');
+  if(!badge) return;
+  if(count && count > 0) {
+    badge.textContent = count > 999 ? '999+' : count;
+    badge.style.display = 'block';
   }
+}
+
+function initGoogle() {
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: handleGoogle,
+    auto_select: true
+  });
+  const saved = loadSavedUser();
+  if (saved) { verifyAndLogin(saved); return; }
+  google.accounts.id.renderButton(
+    document.getElementById('googleBtn'),
+    { theme: 'outline', size: 'large', locale: 'he', width: 240 }
+  );
+  google.accounts.id.prompt();
+}
+
+function tryInitGoogle() {
+  if (window.google && window.google.accounts) { initGoogle(); }
+  else { setTimeout(tryInitGoogle, 100); }
 }
 
 setInterval(pollAll, 3000);
 
-if (document.readyState === 'complete') { tryInitGoogle(); } 
-else { window.addEventListener('load', tryInitGoogle); }
+// כי script.js נטען עם defer, ה-load event כבר ירה — קוראים ישירות
+if (document.readyState === 'complete') {
+  tryInitGoogle();
+} else {
+  window.addEventListener('load', tryInitGoogle);
+}

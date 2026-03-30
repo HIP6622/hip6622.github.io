@@ -759,10 +759,11 @@ async function pollUpdateMode(){
         hdrBtn.title=allActive.length?'מעדכנים: '+allActive.map(u=>u.name+(u.until?' עד '+u.until:'')).join(', '):'אין מעדכנים פעילים כרגע';
       }
     }
-    if(!isSuperAdmin()){
-      const canSend=_updateMode; const sendBtn=document.getElementById('composeSendBtn');
-      if(sendBtn){ sendBtn.disabled=!canSend; sendBtn.style.opacity=canSend?'1':'0.4'; sendBtn.title=canSend?'שלח':'עליך להפעיל מצב מעדכן לפני שליחה'; }
-    }
+    
+    // שחרור כפתור השליחה לכולם! (הסרנו פה את הנעילה של הכותבים)
+    const sendBtn=document.getElementById('composeSendBtn');
+    if(sendBtn){ sendBtn.disabled=false; sendBtn.style.opacity='1'; sendBtn.title='שלח'; }
+    
   }catch(e){}
 }
 

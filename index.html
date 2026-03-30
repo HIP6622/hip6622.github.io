@@ -79,7 +79,7 @@
     <button id="mobileMenuBtn" onclick="toggleLeftSidebar()"><i class="fas fa-bars"></i></button>
     <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;position:relative;">
       <img class="hdr-avatar" src="https://i.ibb.co/pBvLbsG3/ed89a1453931.png" onerror="this.style.background='#e02020'">
-      <div id="hdrEmailCountBadge" style="position:absolute;top:-4px;left:-4px;background:#1a56db;color:#fff;border-radius:99px;font-size:9px;font-weight:800;padding:1px 5px;min-width:16px;text-align:center;border:1.5px solid #fff;display:none;font-family:'Heebo',sans-serif;line-height:14px;" id="hdrEmailCount"></div>
+      <div id="hdrEmailCountBadge" style="position:absolute;top:-4px;left:-4px;background:#1a56db;color:#fff;border-radius:99px;font-size:9px;font-weight:800;padding:1px 5px;min-width:16px;text-align:center;border:1.5px solid #fff;display:none;font-family:'Heebo',sans-serif;line-height:14px;"></div>
     </div>
     <div class="hdr-info">
       <div class="hdr-name" id="hdrChannelName">בינה ודעה - <span>כללי</span></div>
@@ -99,7 +99,7 @@
         </div>
       </div>
       
-      <a class="hdr-icon-btn" href="https://mail.google.com/mail/?view=cm&fs=1&to=0548537646a@gmail.com&su=%D7%9C%D7%9B%D7%91%D7%95%D7%93%20%D7%9E%D7%A0%D7%94%D7%9C%20%D7%90%D7%AA%D7%A8%20%D7%91%D7%99%D7%A0%D7%94%20%D7%95%D7%93%D7%A2%D7%94" target="_blank" rel="noopener" title="פנייה למנהל">
+      <a class="hdr-icon-btn" href="mailto:0548537646a@gmail.com?subject=%D7%9C%D7%9B%D7%91%D7%95%D7%93%20%D7%9E%D7%A0%D7%94%D7%9C%20%D7%90%D7%AA%D7%A8%20%D7%91%D7%99%D7%A0%D7%94%20%D7%95%D7%93%D7%A2%D7%94" target="_blank" rel="noopener" title="פנייה למנהל">
         <i class="fas fa-envelope" style="font-size:13px"></i>
       </a>
       <button id="darkBtn" onclick="toggleDark()" title="מצב כהה">
@@ -498,8 +498,6 @@
   <img id="lbImg" src="" onclick="event.stopPropagation()">
 </div>
 
-
-<!-- ══ מודל דיווח יפה ══ -->
 <div id="reportModalOverlay" style="display:none;position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeReportModal()">
   <div style="background:#fff;border-radius:20px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden;animation:pickerPop .2s ease-out;font-family:'Heebo',sans-serif;direction:rtl;">
     <div style="padding:18px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f0f0f0;">

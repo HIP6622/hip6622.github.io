@@ -1433,10 +1433,11 @@ async function removeAdmin(targetEmail) {
   try {
     const r = await fetch(BACKEND + '/allowed_remove', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ admin_email: me.email, target_email: targetEmail })
+      // התיקון: שונה מ-target_email ל-email
+      body: JSON.stringify({ admin_email: me.email, email: targetEmail }) 
     });
     const d = await r.json();
-    if (d.status === 'success') {
+    if (d.status === 'success' || d.status === 'ok') {
       await new Promise(r => setTimeout(r, 400));
       await loadAllowedMap();
       await renderAdminsList();

@@ -87,7 +87,6 @@ function escAttr(t){return esc(t).replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 function isSuperAdmin(){return SUPER_ADMINS.includes(me?.email?.toLowerCase());}
 
-// לוגיקת הדרגות החדשה והפשוטה
 function getRole() {
     if(!me) return 'visitor';
     if(isSuperAdmin()) return 'super';
@@ -760,10 +759,10 @@ async function pollUpdateMode(){
       }
     }
     
-    // שחרור כפתור השליחה לכולם! (הסרנו פה את הנעילה של הכותבים)
+    // החלק החשוב: הסרנו את החסימה של כפתור השליחה שהייתה פה!
     const sendBtn=document.getElementById('composeSendBtn');
     if(sendBtn){ sendBtn.disabled=false; sendBtn.style.opacity='1'; sendBtn.title='שלח'; }
-    
+
   }catch(e){}
 }
 
@@ -1359,7 +1358,7 @@ async function sendAdminMsg() {
 }
 
 /* ══════════════════════════════════════════
-   ניהול יוצרים וצוות — Manage Admins Modal
+   ניהול מורשי כתיבה דרך הממשק
    ══════════════════════════════════════════ */
 
 async function openManageAdmins() {
@@ -1380,12 +1379,11 @@ async function renderAdminsList() {
     const r = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
     const d = await r.json();
     const users = (d.emails || []).filter(e => typeof e === 'object' && e.email);
-    if (!users.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px;">אין יוצרים/צוות עדיין</div>'; return; }
+    if (!users.length) { list.innerHTML = '<div style="text-align:center;padding:20px;color:#aaa;font-size:13px;">אין מורשי כתיבה עדיין</div>'; return; }
     
     list.innerHTML = users.map(u => {
       const pic = u.picture ? `<img src="${escAttr(u.picture)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">` : `<div style="width:36px;height:36px;border-radius:50%;background:#1a56db;color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;">${esc((u.name||u.email||'?')[0].toUpperCase())}</div>`;
       
-      // תווית פשוטה: או שזה אתה (הבוס), או שהוא כותב מורשה.
       const isBoss = u.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
       const roleLabel = isBoss ? 'בעל האתר' : 'מורשה כתיבה';
       const roleBadgeColor = isBoss ? '#7c3aed' : '#059669';

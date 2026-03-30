@@ -512,6 +512,7 @@ body.has-compose #scrollDownBtn{bottom:calc(var(--compose-h,120px) + 16px);}
 /* emoji picker — relative position for X button */
 
 
+
 /* quote block — prettier */
 .quote-block {
   display:flex; flex-direction:column; gap:3px;

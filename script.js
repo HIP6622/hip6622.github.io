@@ -1,7 +1,7 @@
 window._cardData = {};
 const BACKEND = 'https://hiphopruzbcrd.pythonanywhere.com';
 const GOOGLE_CLIENT_ID = '548333676754-ohvlnp1nfjpc1jnbkdfmr9hpccaj508i.apps.googleusercontent.com';
-const LOGO = 'https://i.ibb.co/pBvLbsG3/ed89a1453931.png';
+const LOGO = 'https://i.ibb.co/KjBNwmPt/image.png';
 const ADMIN_EMAIL = 'hip@hamakom.ovh';
 const SUPER_ADMINS = ['hip@hamakom.ovh', '0548537646a@gmail.com'];
 const STORAGE_KEY = 'bina_user';

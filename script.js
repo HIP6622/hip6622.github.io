@@ -1634,15 +1634,14 @@ async function switchToCreator(slug) {
     }, 50);
   }
 }
-// פונקציה לסגירת חלון הדיווח
-function closeReportModal() {
+// פונקציה גלובלית לסגירת חלון הדיווח
+window.closeReportModal = function() {
   const overlay = document.getElementById('reportModalOverlay');
   if (overlay) overlay.style.display = 'none';
   
-  // ניקוי תיבת הטקסט והשגיאות כדי שיהיה נקי לפעם הבאה
   const input = document.getElementById('reportModalInput');
   if (input) input.value = '';
   
   const error = document.getElementById('reportModalError');
   if (error) error.style.display = 'none';
-}
+};

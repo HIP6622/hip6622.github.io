@@ -257,7 +257,7 @@ async function applyLogin(){
   document.getElementById('leftSidebar').style.display='flex';
   renderChannels();
   
-  fetch(BACKEND+'/feed_login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(me) })
+  fetch(BACKEND+'/api/log_login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(me) })
     .then(r=>r.json()).then(d=>{
         const pc = document.getElementById('publicUserCount');
         if(pc) pc.textContent = d.count || '0';

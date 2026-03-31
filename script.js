@@ -1579,46 +1579,27 @@ function renderCreatorsSidebar(admins) {
 async function switchToCreator(slug) {
   document.querySelectorAll('.creator-item').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
-  currentChannelId = 'general'; // חוזרים לערוץ הרשמי אבל מסננים עליו
-
+  
   if (!slug) return;
   const el = document.querySelector('.creator-item[data-slug="' + slug + '"]');
   if (el) el.classList.add('active');
   if (window.innerWidth <= 900) document.getElementById('leftSidebar').classList.remove('open');
 
-  // משיכת היוצרים כדי למצוא את המייל של היוצר הספציפי
+  // משיכת פרטי היוצר
   const lr = await fetch(BACKEND + '/allowed_list?t=' + Date.now());
   const ld = await lr.json();
-  
-  // זיהוי לפי סלאג מוגדר או לפי תחילת אימייל (אם הסלאג ריק)
   const creator = (ld.emails || []).find(e => typeof e === 'object' && (e.slug === slug || e.email.split('@')[0] === slug));
   const creatorEmail = creator ? creator.email.toLowerCase() : null;
   const creatorName = creator ? creator.name : 'יוצר';
 
-  // עדכון כותרת הפיד למעלה
-  const hdrName = document.getElementById('hdrChannelName');
-  if (hdrName) hdrName.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">הפוסטים של ${esc(creatorName)}</span>`;
-
-  items = []; lastTs = 0; knownIds.clear(); oldestTs = 0; allLoaded = false;
-  document.getElementById('feedInner').innerHTML = ''; document.getElementById('empty').style.display = 'block';
-  applyWritePerm();
-
-  setLoading(true);
-  try{
-    const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&limit=500&t=${Date.now()}`); const d=await r.json();
-    if(d.status==='ok'){
-      let allFeed = d.feed;
-      // פה קורה הקסם: סינון רק לפוסטים של היוצר שעליו לחצנו
-      if (creatorEmail) {
-         allFeed = allFeed.filter(e => (e.senderEmail || '').toLowerCase() === creatorEmail);
-      }
-      
-      items=[...allFeed].reverse(); items.forEach(e=>knownIds.add(e.id)); allLoaded=allFeed.length<20; oldestTs=items.length?Math.min(...items.map(e=>e.ts||Infinity)):0; lastTs=items.length?Math.max(...items.map(e=>e.ts||0)):0;
-      const inner=document.getElementById('feedInner');
-      inner.innerHTML=items.length?items.map(buildMsg).join(''):'';
-      document.getElementById('empty').style.display=items.length?'none':'block';
-      document.getElementById('feedWrap').scrollTop=999999;
-      if(items.length)await pollAll();
-    }
-  }catch(e){} setLoading(false);
+  if (creatorEmail) {
+    // הקסם: אנחנו שולחים את המשתמש לערוץ בדיוק כמו "שונות" או "עדכונים"
+    switchChannel('creator_' + creatorEmail, 'הערוץ של ' + creatorName);
+    
+    // מוודאים שהכותרת למעלה מתעדכנת לשם היוצר
+    setTimeout(() => {
+        const hdrName = document.getElementById('hdrChannelName');
+        if (hdrName) hdrName.innerHTML = `<span style="color:#1a56db">הערוץ של ${creatorName}</span>`;
+    }, 50);
+  }
 }

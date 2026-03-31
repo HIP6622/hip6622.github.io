@@ -551,7 +551,7 @@ function renderCreatorsSidebar(admins) {
     const colors = ['#1a56db','#7c3aed','#059669','#e02020','#d97706','#0891b2','#db2777'];
     const color = colors[Math.abs(initials.charCodeAt(0)) % colors.length];
     const avatarHtml = creator.photoURL || creator.avatar
-      ? `<img src="${creator.photoURL || creator.avatar}" onerror="this.parentElement.innerHTML='${initials}';this.parentElement.style.background='${color}';">`
+      ? `<img src="${creator.photoURL || creator.avatar}" onerror="this.parentElement.textContent=${JSON.stringify(initials)};this.parentElement.style.background=${JSON.stringify(color)};this.remove();">`
       : initials;
     
     return `<div class="creator-item" onclick="switchToCreator('${creator.slug || creator.email || ''}')" data-slug="${creator.slug || ''}">

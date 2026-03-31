@@ -951,11 +951,24 @@ function updateAttachPreview(){
   prev.innerHTML=chips.join(''); prev.classList.toggle('show',chips.length>0);
 }
 
+function toggleSearch() {
+    const bar = document.getElementById('searchBar');
+    bar.classList.toggle('open');
+    if(bar.classList.contains('open')) {
+        setTimeout(() => document.getElementById('searchInput').focus(), 100);
+    }
+}
+
+let searchTimeout = null;
 function onSearch(val){
     const searchClear = document.getElementById('searchClear');
     if(searchClear) searchClear.classList.toggle('show', val.length > 0);
     if(!val || val.trim()==='') { clearSearch(); return; }
-    doSearch(val);
+    
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        doSearch(val);
+    }, 400);
 }
 function clearSearch(){
     document.getElementById('searchInput').value='';

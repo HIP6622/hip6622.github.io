@@ -1633,16 +1633,34 @@ async function switchToCreator(slug) {
     }, 50);
   }
 }
-// פונקציה גלובלית לסגירת חלון הדיווח
+// פונקציה חכמה לסגירת חלונות דיווח (רגיל וניהול)
 window.closeReportModal = function() {
-  const overlay = document.getElementById('reportModalOverlay');
-  if (overlay) overlay.style.display = 'none';
-  
-  const input = document.getElementById('reportModalInput');
-  if (input) input.value = '';
-  
-  const error = document.getElementById('reportModalError');
-  if (error) error.style.display = 'none';
+    // 1. מזהה מאיפה לחצו (מה-X, מהביטול או מהרקע) וסוגר את מעטפת האב המרכזית
+    try {
+        if (window.event && window.event.target) {
+            // מחפש את המסגרת העליונה של החלון שיש לה פוזיציה מקובעת למסך
+            const modalWrapper = window.event.target.closest('div[style*="fixed"]') || window.event.target.closest('div[style*="absolute"]');
+            if (modalWrapper) {
+                modalWrapper.style.display = 'none';
+            }
+        }
+    } catch(e) {}
+
+    // 2. גיבוי: מעלים כל רקע שמכיל את הפקודה הזו
+    document.querySelectorAll('div').forEach(el => {
+        const onClickAttr = el.getAttribute('onclick');
+        if (onClickAttr && onClickAttr.includes('closeReportModal') && el.children.length > 0) {
+            el.style.display = 'none';
+        }
+    });
+
+    // 3. מנקה את תיבת הטקסט (אם יש כזו באותו חלון) כדי שלא יישאר מלוכלך לפעם הבאה
+    const inputs = document.querySelectorAll('textarea, input');
+    inputs.forEach(input => {
+        if (input.id && input.id.toLowerCase().includes('report')) {
+            input.value = '';
+        }
+    });
 };
 
 // ====== מנגנון טעינת היסטוריה אגרסיבי ======

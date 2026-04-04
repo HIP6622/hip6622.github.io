@@ -94,7 +94,7 @@ function renderChannels() {
 }
   list.innerHTML = html;
   
-  // הכנסת היוצרים לתוך התיקייה הנפתחת
+// הכנסת היוצרים לתוך התיקייה הנפתחת
   if (cl) document.getElementById('creatorsFolderContent').appendChild(cl);
 
   const currentName = CHANNELS.find(c=>c.id===currentChannelId)?.name || 'כללי';
@@ -102,7 +102,7 @@ function renderChannels() {
   if (hdrName) hdrName.innerHTML = `${esc(siteGlobalSettings.title)} - <span style="color:#1a56db">${currentName}</span>`;
 }
 
-onclick="toggleCreatorsPanel()" {
+function toggleCreatorsFolder() {
   const content = document.getElementById('creatorsFolderContent');
   const icon = document.getElementById('creatorsFolderIcon');
   if (!content) return;

@@ -61,7 +61,7 @@ let CHANNELS = [
   { id: 'misc', name: 'שונות (בדיחות ותכני AI)', icon: 'fa-smile-beam' }
 ];
 
-function renderChannels() {
+onclick=toggleCreatorsPanel() {
   const list = document.getElementById('channelsList'); if(!list) return;
   
   // נשמור את רשימת היוצרים בצד כדי שלא תימחק כשאנחנו בונים את התפריט

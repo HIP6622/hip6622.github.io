@@ -87,9 +87,6 @@ function renderChannels() {
   
   // הכנסת היוצרים לתוך התיקייה הנפתחת
   if (cl) document.getElementById('creatorsFolderContent').appendChild(cl);
-  // העלמת הכותרת הישנה של היוצרים מקרקעית התפריט
-  const oldHdr = document.querySelector('.creators-hdr');
-  if (oldHdr) oldHdr.style.display = 'none';
 
   const currentName = CHANNELS.find(c=>c.id===currentChannelId)?.name || 'כללי';
   const hdrName = document.getElementById('hdrChannelName');

@@ -1608,7 +1608,7 @@ function renderCreatorsSidebar(admins) {
 
 let _creatorsPanelOpen = false;
 
-function toggleCreatorsPanel() {
+onclick=toggleCreatorsFolder() {
   _creatorsPanelOpen = !_creatorsPanelOpen;
   document.getElementById('creatorsPanel')?.classList.toggle('open', _creatorsPanelOpen);
   document.querySelector('.creators-hdr')?.classList.toggle('open', _creatorsPanelOpen);

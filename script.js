@@ -1651,8 +1651,11 @@ async function uploadToImgBB(input) {
 
     const statusEl = document.getElementById('uploadStatus');
     const urlInput = document.getElementById('composeImgUrl');
+    const thumbWrap = document.getElementById('composeImgThumb');
+    const thumbImg = document.getElementById('composeImgThumbImg');
     
-    if(statusEl) statusEl.style.display = 'block';
+    // מציג סטטוס טעינה
+    if (statusEl) statusEl.style.display = 'block';
     
     const formData = new FormData();
     formData.append('image', file);
@@ -1665,19 +1668,28 @@ async function uploadToImgBB(input) {
         const result = await response.json();
 
         if (result.success) {
-            const imageUrl = result.data.url;
-            urlInput.value = imageUrl;
-            // קורא לפונקציה הקיימת שלך שמעדכנת את התצוגה המקדימה
+            const finalUrl = result.data.url;
+            
+            // 1. מכניס את הקישור לתיבה
+            if (urlInput) urlInput.value = finalUrl;
+            
+            // 2. דחיפה אגרסיבית להצגת התצוגה המקדימה כדי שלא יפספס!
+            if (thumbImg && thumbWrap) {
+                thumbImg.src = finalUrl;
+                thumbWrap.style.display = 'block';
+            }
+            
+            // 3. מפעיל גם את פונקציית העדכון של האתר ליתר ביטחון
             if (typeof updateComposeImg === 'function') updateComposeImg();
-            alert('התמונה הועלתה בהצלחה!');
+            
         } else {
-            alert('שגיאה בהעלאה: ' + result.error.message);
+            alert('שגיאה מהשרת בזמן העלאה: ' + result.error.message);
         }
     } catch (error) {
         console.error('Upload error:', error);
-        alert('נכשל בתקשורת עם שרת התמונות');
+        alert('ההעלאה נכשלה. ייתכן והקובץ גדול מדי או שאין חיבור לאינטרנט.');
     } finally {
-        if(statusEl) statusEl.style.display = 'none';
-        input.value = ''; // מאפס את הבחירה
+        if (statusEl) statusEl.style.display = 'none';
+        input.value = ''; // מאפס את שדה הבחירה כדי שתוכל להעלות שוב
     }
 }

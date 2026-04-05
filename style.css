@@ -928,89 +928,71 @@ body.dark #searchResults { background: #0f0f15; }
     overflow: visible !important;
 }
 
-/* 2. מתיחה אגרסיבית של כל קוד HTML או iframe בתוך הודעה */
-#feedWrap iframe, 
-#feedWrap .html-container,
-#feedWrap .msg-html-wrap,
-#feedWrap [srcdoc] {
-    width: 100% !important;
-    min-height: 550px !important; /* גובה התחלתי ענק */
-    height: 100% !important;
-    max-height: 800px !important; /* נותן לו מלא מקום לגדול */
-    aspect-ratio: unset !important; /* מבטל כל צורה של ריבוע */
-    border: 1px solid #e5e7eb !important;
-    border-radius: 12px !important;
-    display: block !important;
-    resize: vertical !important;
-    overflow: auto !important;
-    background: #fff !important;
-}
-/* ====== רקע אינטראקטיבי דינמי - גרסת גלריית AI יוקרתית ====== */
+/* ====== רקע גלריה כהה ויוקרתי (Masterpiece Gallery) ====== */
 .bg-container {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    z-index: -10; /* שומר את הרקע מתחת לכל האתר */
+    z-index: -10;
     overflow: hidden;
-    background: #f8fafc; /* אפור-לבן נקי ויוקרתי (כמו קיר של גלריה) */
-    pointer-events: none; /* מונע חסימת לחיצות */
+    background: #0a0a0f; /* שחור-פחם עמוק (יוקרתי יותר מסתם שחור) */
+    pointer-events: none;
 }
 
 .blob {
     position: absolute;
     border-radius: 50%;
-    filter: blur(90px); /* טשטוש עמוק ליצירת מראה חלבי רך */
-    opacity: 0.8; /* טיפה שקיפות כדי שלא יגנוב את ההצגה מהתוכן */
-    animation: float 25s infinite ease-in-out alternate;
+    filter: blur(100px); /* טשטוש כבד מאוד למראה אלגנטי ולא מצויר */
+    opacity: 0.5; /* שקיפות שנותנת רק רמז של צבע, לא משתלטת */
+    animation: float 30s infinite ease-in-out alternate;
     will-change: transform;
 }
 
-/* בועה 1 - לילך (יצירתיות ובינה) */
+/* בועה 1 - סגול חציל עמוק (מייצג יוקרה ועומק) */
 .blob-1 {
     top: -10%; left: -10%;
     width: 60vw; height: 60vw;
-    background: #e0e7ff;
+    background: #2e1065; 
     animation-delay: 0s;
 }
 
-/* בועה 2 - ורוד שמפניה (אמנות וחום אנושי) */
+/* בועה 2 - כחול פלדה/לילה (הבסיס הטכנולוגי) */
 .blob-2 {
     bottom: -20%; right: -10%;
     width: 70vw; height: 70vw;
-    background: #fae8ff;
+    background: #0f172a; 
     animation-delay: -5s;
 }
 
-/* בועה 3 - תכלת בייבי (טכנולוגיה) */
+/* בועה 3 - ברונזה/זהב כהה (הנגיעה של "יצירת המופת הקלאסית") */
 .blob-3 {
     top: 40%; left: 30%;
     width: 50vw; height: 50vw;
-    background: #e0f2fe;
+    background: #451a03; 
     animation-delay: -10s;
 }
 
-/* העכבר - "הילת AI" שעוקבת אחרי המשתמש */
+/* העכבר - "פנס ספוטלייט" של גלריה */
 .mouse-blob {
     position: absolute;
     top: 0; left: 0;
     width: 40vw; height: 40vw;
-    /* תאורה לבנה עם נגיעה חלשה של זהב שמקפיצה את הלבן של ההודעות */
-    background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(253, 251, 247, 0.6) 30%, transparent 70%);
+    /* הילה חמימה ועדינה מאוד שמדמה אור של תערוכה על יצירות */
+    background: radial-gradient(circle, rgba(253, 224, 71, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
     z-index: 1;
     filter: blur(40px);
     transform: translate(-50%, -50%);
     will-change: transform;
-    mix-blend-mode: overlay;
+    mix-blend-mode: screen; /* משתלב בצורה מושלמת ומאירה עם הרקע הכהה */
 }
 
-/* תנועה חלקה ומהפנטת שמתאימה לתצוגת אמנות */
 @keyframes float {
     0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-    33% { transform: translate(8%, -10%) scale(1.05) rotate(3deg); }
-    66% { transform: translate(-8%, 10%) scale(0.95) rotate(-3deg); }
+    33% { transform: translate(5%, -5%) scale(1.02) rotate(2deg); }
+    66% { transform: translate(-5%, 5%) scale(0.98) rotate(-2deg); }
     100% { transform: translate(0, 0) scale(1) rotate(0deg); }
 }

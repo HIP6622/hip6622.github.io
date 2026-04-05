@@ -928,71 +928,44 @@ body.dark #searchResults { background: #0f0f15; }
     overflow: visible !important;
 }
 
-/* ====== רקע גלריה כהה ויוקרתי (Masterpiece Gallery) ====== */
+/* ====== רקע "בין ערביים" נעים לעין ובוגר ====== */
 .bg-container {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -10;
-    overflow: hidden;
-    background: #0a0a0f; /* שחור-פחם עמוק (יוקרתי יותר מסתם שחור) */
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: -10; overflow: hidden;
+    /* צבע אמצע: אפור-כחלחל עמוק ומרגיע, לא קונטרסטי מידי */
+    background: #1e2433; 
     pointer-events: none;
 }
 
 .blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(100px); /* טשטוש כבד מאוד למראה אלגנטי ולא מצויר */
-    opacity: 0.5; /* שקיפות שנותנת רק רמז של צבע, לא משתלטת */
+    position: absolute; border-radius: 50%;
+    filter: blur(120px); /* טשטוש עצום שמונע קווים גסים */
+    opacity: 0.35; /* שקיפות גבוהה - הצבעים רק "רומזים" שהם שם */
     animation: float 30s infinite ease-in-out alternate;
     will-change: transform;
 }
 
-/* בועה 1 - סגול חציל עמוק (מייצג יוקרה ועומק) */
-.blob-1 {
-    top: -10%; left: -10%;
-    width: 60vw; height: 60vw;
-    background: #2e1065; 
-    animation-delay: 0s;
-}
+.blob-1 { top: 0%; left: -10%; width: 60vw; height: 60vw; background: #3b82f6; animation-delay: 0s; }
+.blob-2 { bottom: -10%; right: -10%; width: 70vw; height: 70vw; background: #8b5cf6; animation-delay: -5s; }
+.blob-3 { top: 30%; left: 30%; width: 50vw; height: 50vw; background: #0ea5e9; animation-delay: -10s; }
 
-/* בועה 2 - כחול פלדה/לילה (הבסיס הטכנולוגי) */
-.blob-2 {
-    bottom: -20%; right: -10%;
-    width: 70vw; height: 70vw;
-    background: #0f172a; 
-    animation-delay: -5s;
-}
-
-/* בועה 3 - ברונזה/זהב כהה (הנגיעה של "יצירת המופת הקלאסית") */
-.blob-3 {
-    top: 40%; left: 30%;
-    width: 50vw; height: 50vw;
-    background: #451a03; 
-    animation-delay: -10s;
-}
-
-/* העכבר - "פנס ספוטלייט" של גלריה */
+/* הילת העכבר הרכה */
 .mouse-blob {
-    position: absolute;
-    top: 0; left: 0;
-    width: 40vw; height: 40vw;
-    /* הילה חמימה ועדינה מאוד שמדמה אור של תערוכה על יצירות */
-    background: radial-gradient(circle, rgba(253, 224, 71, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, transparent 70%);
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 1;
-    filter: blur(40px);
-    transform: translate(-50%, -50%);
-    will-change: transform;
-    mix-blend-mode: screen; /* משתלב בצורה מושלמת ומאירה עם הרקע הכהה */
+    position: absolute; top: 0; left: 0; width: 35vw; height: 35vw;
+    background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 60%);
+    border-radius: 50%; pointer-events: none; z-index: 1; filter: blur(20px);
+    transform: translate(-50%, -50%); mix-blend-mode: screen;
+}
+
+/* הקנבס של הנצנצים (חייב לכסות הכל ולא להפריע ללחיצות) */
+#sparklesCanvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 2;
 }
 
 @keyframes float {
     0% { transform: translate(0, 0) scale(1) rotate(0deg); }
-    33% { transform: translate(5%, -5%) scale(1.02) rotate(2deg); }
-    66% { transform: translate(-5%, 5%) scale(0.98) rotate(-2deg); }
+    50% { transform: translate(3%, -3%) scale(1.02) rotate(1deg); }
     100% { transform: translate(0, 0) scale(1) rotate(0deg); }
 }

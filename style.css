@@ -908,7 +908,7 @@ body.dark #searchResults { background: #0f0f15; }
     color: #334155 !important;
     font-weight: bold !important;
     font-size: 14px !important;
-    display: flex !important;
+    display: none; /* ברירת מחדל - מוסתר! */
     justify-content: space-between !important;
     align-items: center !important;
     cursor: pointer !important;

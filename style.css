@@ -864,37 +864,42 @@ body.dark #searchResults { background: #0f0f15; }
     margin-bottom: 5px !important;
 }
 
-/* עיצוב כפתור "לפי יוצרים" */
+/* מניעת הימתחות הערוצים */
+#channelsList {
+    flex: 0 0 auto !important; 
+    margin-bottom: 5px !important;
+}
+
+/* כפתור יוצרים - עיצוב נקי ואלגנטי שמשתלב באתר */
 .creators-hdr {
-    padding: 12px 16px !important;
-    margin: 5px 14px 15px !important;
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%) !important;
-    border: 1px solid #bbf7d0 !important;
-    border-radius: 12px !important;
-    color: #166534 !important;
-    font-weight: 800 !important;
-    font-size: 14px !important;
+    padding: 10px 14px !important;
+    margin: 0 14px 14px !important;
+    background: #f8fafc !important; /* אפור בהיר ועדין */
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    color: #475569 !important; /* אפור כהה-כחלחל לטקסט */
+    font-weight: 700 !important;
+    font-size: 13px !important;
     display: flex !important;
     justify-content: space-between !important;
     align-items: center !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
-    box-shadow: 0 2px 8px rgba(22, 101, 52, 0.08) !important;
 }
 
 .creators-hdr:hover {
-    transform: translateY(-2px) !important;
-    box-shadow: 0 4px 12px rgba(22, 101, 52, 0.15) !important;
-    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%) !important;
+    background: #eff6ff !important; /* רקע כחלחל עדין במעבר עכבר */
+    color: #1a56db !important; /* כחול כמו של האתר */
+    border-color: #bfdbfe !important;
 }
 
 .ch-dot {
     display: inline-block !important;
-    width: 7px !important;
-    height: 7px !important;
-    background: #22c55e !important;
+    width: 6px !important;
+    height: 6px !important;
+    background: #3b82f6 !important; /* נקודה כחולה זוהרת */
     border-radius: 50% !important;
-    box-shadow: 0 0 8px #22c55e !important;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.5) !important;
     animation: pulse-dot 2s infinite !important;
 }
 
@@ -906,12 +911,13 @@ body.dark #searchResults { background: #0f0f15; }
 
 .ch-arrow {
     font-size: 11px !important;
-    opacity: 0.7 !important;
+    opacity: 0.5 !important;
     transition: transform 0.2s !important;
 }
 
 .creators-hdr:hover .ch-arrow {
     transform: translateX(-3px) !important;
+    opacity: 1 !important;
 }
 // ====== העלאת תמונות אוטומטית ל-ImgBB ======
 async function uploadToImgBB(file) {

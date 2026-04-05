@@ -1730,3 +1730,10 @@ async function uploadToImgBB(file) {
     if (fileInput) fileInput.value = ''; 
   }
 }
+// הבטחה שכפתור היוצרים ייפתח תמיד
+window.toggleCreatorsPanel = function() {
+    let panel = document.getElementById('creatorsPanel');
+    let hdr = document.querySelector('.creators-hdr');
+    if (panel) panel.classList.toggle('open');
+    if (hdr) hdr.classList.toggle('open');
+};

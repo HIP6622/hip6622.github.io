@@ -685,7 +685,6 @@ async function delCmt(msgId,cid){
 }
 
 async function loadFeed(){
-  setLoading(true);
   try {
     const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&limit=20&t=${Date.now()}`);
     const d=await r.json();
@@ -703,7 +702,7 @@ async function loadFeed(){
       let unreadInjected = false;
       let html = '';
 
-items.forEach(e => {
+      items.forEach(e => {
         if(!unreadInjected && lastReadTs > 0 && e.ts > lastReadTs) {
             html += `<div class="unread-sep" id="unreadMarker"><span>לא נקרא</span></div>`;
             unreadInjected = true;
@@ -724,9 +723,12 @@ items.forEach(e => {
       if(lastTs > 0) setLastReadServer(lastTs);
       if(typeof triggerStats === 'function') triggerStats();
       if(items.length) await pollAll();
+    } else {
+      console.error("שגיאה מהשרת: " + (d.msg || "סיבה לא ידועה"));
     }
-  } catch(e) {}
-  setLoading(false);
+  } catch(e) {
+    console.error("שגיאה בטעינת הפיד: " + e.message);
+  }
 }
 
 async function loadMore(){

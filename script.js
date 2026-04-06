@@ -2023,7 +2023,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // לולאת האנימציה (רצה 60 פעמים בשנייה)
+ // לולאת האנימציה (רצה 60 פעמים בשנייה)
     function animate() {
         // 1. תנועת הילת הרקע (הבועה)
         currentX += (mouseX - currentX) * 0.05;
@@ -2040,8 +2040,8 @@ document.addEventListener("DOMContentLoaded", () => {
             p.life -= 0.015; // מהירות ההתפוגגות
 
             if (p.life > 0) {
-                // צבע לבן עם שקיפות רכה (מקסימום 40% אטימות)
-                ctx.fillStyle = `rgba(255, 255, 255, ${p.life * 0.4})`; 
+                // *** הנה השינוי: צבע שמנת-זהבהב עתיק במקום לבן! ***
+                ctx.fillStyle = `rgba(255, 240, 200, ${p.life * 0.5})`; 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill();

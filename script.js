@@ -686,15 +686,16 @@ async function delCmt(msgId,cid){
 
 async function loadFeed(){
   setLoading(true);
-  try{
-    const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&limit=20&t=${Date.now()}`); 
+  try {
+    const r=await fetch(BACKEND+`/feed?channel=${currentChannelId}&limit=20&t=${Date.now()}`);
     const d=await r.json();
     
     if(d.status==='ok'){
-      items=[...d.feed].reverse(); 
-      items.forEach(e=>knownIds.add(e.id)); 
-      allLoaded=d.feed.length<20; 
-      oldestTs=items.length?Math.min(...items.map(e=>e.ts||Infinity)):0; 
+      items=[...d.feed].reverse();
+      items.forEach(e=>knownIds.add(e.id));
+      allLoaded=d.feed.length<20;
+      
+      oldestTs=items.length?Math.min(...items.map(e=>e.ts||Infinity)):0;
       lastTs=items.length?Math.max(...items.map(e=>e.ts||0)):0;
       
       const inner=document.getElementById('feedInner');
@@ -722,11 +723,11 @@ async function loadFeed(){
 
       if(lastTs > 0) setLastReadServer(lastTs);
       
-      triggerStats();
+      if(typeof triggerStats === 'function') triggerStats();
       
       if(items.length) await pollAll();
     }
-  }catch(e){} 
+  } catch(e) {}
   setLoading(false);
 }
 

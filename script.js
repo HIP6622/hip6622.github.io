@@ -701,11 +701,15 @@ async function loadFeed(){
       const lastReadTs = await getLastReadServer();
       let unreadInjected = false;
       let html = '';
+      let unreadCount = 0;
 
       items.forEach(e => {
-        if(!unreadInjected && lastReadTs > 0 && e.ts > lastReadTs) {
-            html += `<div class="unread-sep" id="unreadMarker"><span>לא נקרא</span></div>`;
-            unreadInjected = true;
+        if(lastReadTs > 0 && e.ts > lastReadTs) {
+            if(!unreadInjected) {
+                html += `<div class="unread-sep" id="unreadMarker"><span>לא נקרא</span></div>`;
+                unreadInjected = true;
+            }
+            unreadCount++;
         }
         html += buildMsg(e);
       });
@@ -715,7 +719,13 @@ async function loadFeed(){
       
       const marker = document.getElementById('unreadMarker');
       if (marker) {
-          setTimeout(() => marker.scrollIntoView({behavior: 'smooth', block: 'center'}), 100);
+          setTimeout(() => {
+              marker.scrollIntoView({behavior: 'smooth', block: 'center'});
+              // מעיר את כפתור הגלילה למטה עם מספר ההודעות שלא נקראו!
+              atBottom = false;
+              newCount = unreadCount;
+              if(typeof updateScrollBtn === 'function') updateScrollBtn();
+          }, 100);
       } else {
           document.getElementById('feedWrap').scrollTop=999999;
       }

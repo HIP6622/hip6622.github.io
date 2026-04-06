@@ -942,33 +942,42 @@ body, html {
     background-color: transparent !important;
 }
 
+/* ====== איפוס כדי ששום דבר לא יסתיר את הרקע ====== */
+body, html {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
 /* ====== רקע קלף עמוק (מוגדל קצת בשביל תנועת ה-3D) ====== */
 .bg-container {
     position: fixed;
-    top: -5%; left: -5%; /* מוגדל ב-10% כדי לאפשר תנועה */
+    top: -5%; left: -5%; 
     width: 110vw; height: 110vh;
     z-index: -1 !important;
     overflow: hidden;
-    /* הגרדיאנט שלך: קצוות בהירים, מרכז כהה יותר - עכשיו עם יותר קונטרסט לעומק */
-    background: radial-gradient(circle at center, #c29c6d 0%, #dcb88b 50%, #fdf5e6 100%) !important;
+    /* הגרדיאנט המעודכן: הכי בהיר בימין (בשביל התפריט) ומתכהה לשמאל */
+    background: linear-gradient(to left, #fdf5e6 0%, #fdf5e6 15%, #e8ceab 60%, #cda776 100%) !important;
     pointer-events: none;
     transition: transform 0.2s ease-out; /* החלקה של תנועת הפרלקס */
 }
 
-/* שכבת השריטות שקועה בתוך הקלף */
+/* ====== שכבת השריטות (פה נכנסת התמונה שלך!) ====== */
 .parchment-scratches {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    background-image: 
-        linear-gradient(60deg, rgba(60, 40, 20, 0.08) 1px, transparent 1px, transparent 40px),
-        linear-gradient(-60deg, rgba(60, 40, 20, 0.05) 1px, transparent 1px, transparent 50px);
-    background-size: 150px 150px, 120px 120px;
-    mix-blend-mode: multiply; /* מטמיע את השריטות לתוך הצבע ככה שזה נראה אמיתי ולא מודבק */
+    
+    /* פה אתה שם את הקישור לתמונת הטקסטורה של הקלף/שריטות שתעלה לגיטהאב */
+    background-image: url('YOUR_IMAGE_LINK_HERE.jpg'); 
+    
+    background-size: cover;
+    background-position: center;
+    opacity: 0.6; /* אפשר לשחק עם המספר הזה (בין 0.1 ל-1) כדי להחליש או לחזק את השריטות */
+    mix-blend-mode: multiply; /* זה הקסם שצורב את התמונה לתוך צבעי הקלף שלנו */
     pointer-events: none;
     z-index: 1;
 }
 
-/* הילת העכבר הנוזלית */
+/* ====== הילת העכבר הנוזלית ====== */
 .mouse-blob {
     position: absolute; top: 0; left: 0; 
     width: 45vw; height: 45vw;
@@ -986,6 +995,7 @@ body, html {
     100% { border-radius: 30% 70% 50% 50% / 60% 40% 70% 40%; }
 }
 
+/* ====== הקנבס של הנצנצים ====== */
 #sparklesCanvas {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none; z-index: 3;
